@@ -1,6 +1,12 @@
 import React, { useState } from "react";
 import styled from "styled-components";
 import { FcGoogle } from "react-icons/fc";
+import { 
+  createUserWithEmailAndPassword, 
+  signInWithEmailAndPassword, 
+  signInWithPopup 
+} from "firebase/auth";
+import { auth, googleProvider } from "../firebase";
 
 const PageBox = styled.div`
   display: flex;
@@ -107,7 +113,7 @@ const Input = styled.input`
   border: 1px solid transparent;
   border-radius: 30px;
   font-size: 14px;
-  color: #a6abb9;
+  color: #52555f;
   outline: none;
   transition: border 0.2s ease, color 0.2s ease;
 
@@ -119,6 +125,14 @@ const Input = styled.input`
     border-color: #ff6b00;
     background-color: #fff;
   }
+`;
+
+const ErrorText = styled.p`
+  color: #e53e3e;
+  font-size: 12px;
+  text-align: center;
+  margin-top: -10px;
+  margin-bottom: -10px;
 `;
 
 const ButtonGroup = styled.div`
@@ -144,6 +158,12 @@ const LoginButton = styled.button`
   &:hover {
     opacity: 0.9;
   }
+
+  &:disabled {
+    background: #ccc;
+    cursor: not-allowed;
+    box-shadow: none;
+  }
 `;
 
 const RegisterButton = styled.button`
@@ -162,11 +182,59 @@ const RegisterButton = styled.button`
   &:hover {
     background-color: #e2e8f0;
   }
+
+  &:disabled {
+    background-color: #eee;
+    cursor: not-allowed;
+  }
 `;
 
 export const LoginPage: React.FC = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setLoading(true);
+    try {
+      await signInWithEmailAndPassword(auth, email, password);
+    } catch (err: any) {
+      setError(err.message || "Помилка при вході");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRegister = async () => {
+    if (!email || !password) {
+      setError("Будь ласка, введіть email та пароль");
+      return;
+    }
+    setError(null);
+    setLoading(true);
+    try {
+      await createUserWithEmailAndPassword(auth, email, password);
+    } catch (err: any) {
+      setError(err.message || "Помилка при реєстрації");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    setError(null);
+    setLoading(true);
+    try {
+      await signInWithPopup(auth, googleProvider);
+    } catch (err: any) {
+      setError(err.message || "Помилка при вході через Google");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <PageBox>
@@ -179,27 +247,45 @@ export const LoginPage: React.FC = () => {
           <CardContainer>
             <InstructionText>Ви можете авторизуватися за допомогою акаунта Google</InstructionText>
 
-            <GoogleButton type="button">
+            <GoogleButton type="button" onClick={handleGoogleSignIn} disabled={loading}>
               <FcGoogle size={20} />
               <span>Google</span>
             </GoogleButton>
 
             <DividerText>Або увійти за допомогою ел. пошти та паролю після реєстрації</DividerText>
 
-            <Form>
+            <Form onSubmit={handleLogin}>
               <FormGroup>
                 <Label>Електронна пошта:</Label>
-                <Input type="email" placeholder="your@email.com" value={email} onChange={(e) => setEmail(e.target.value)} required />
+                <Input 
+                  type="email" 
+                  placeholder="your@email.com" 
+                  value={email} 
+                  onChange={(e) => setEmail(e.target.value)} 
+                  required 
+                />
               </FormGroup>
 
               <FormGroup>
                 <Label>Пароль:</Label>
-                <Input type="password" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} required />
+                <Input 
+                  type="password" 
+                  placeholder="••••••••" 
+                  value={password} 
+                  onChange={(e) => setPassword(e.target.value)} 
+                  required 
+                />
               </FormGroup>
 
+              {error && <ErrorText>{error}</ErrorText>}
+
               <ButtonGroup>
-                <LoginButton type="submit">УВІЙТИ</LoginButton>
-                <RegisterButton type="button">РЕЄСТРАЦІЯ</RegisterButton>
+                <LoginButton type="submit" disabled={loading}>
+                  УВІЙТИ
+                </LoginButton>
+                <RegisterButton type="button" onClick={handleRegister} disabled={loading}>
+                  РЕЄСТРАЦІЯ
+                </RegisterButton>
               </ButtonGroup>
             </Form>
           </CardContainer>
@@ -208,3 +294,4 @@ export const LoginPage: React.FC = () => {
     </PageBox>
   );
 };
+

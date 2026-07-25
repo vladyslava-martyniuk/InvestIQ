@@ -1,5 +1,7 @@
 import React from 'react';
 import styled from 'styled-components';
+import { signOut } from 'firebase/auth';
+import { auth } from '../../firebase';
 
 // --- TYPESCRIPT INTERFACE ---
 interface HeaderProps {
@@ -236,6 +238,17 @@ const LogoutIcon = () => (
 export const Header: React.FC<HeaderProps> = ({ userName = "User Name", onLogout }) => {
   const initial = userName ? userName.trim()[0].toUpperCase() : '';
 
+  const handleLogoutClick = async () => {
+    try {
+      await signOut(auth);
+      if (onLogout) {
+        onLogout();
+      }
+    } catch (err) {
+      console.error("Помилка при виході:", err);
+    }
+  };
+
   return (
     <HeaderContainer>
       <Wrapper>
@@ -246,7 +259,7 @@ export const Header: React.FC<HeaderProps> = ({ userName = "User Name", onLogout
         <UserBlock>
           <Avatar>{initial}</Avatar>
           <UserName>{userName}</UserName>
-          <LogoutBtn onClick={onLogout} title="Вийти">
+          <LogoutBtn onClick={handleLogoutClick} title="Вийти">
             <span className="logout-text">Вийти</span>
             <LogoutIcon />
           </LogoutBtn>
@@ -254,4 +267,4 @@ export const Header: React.FC<HeaderProps> = ({ userName = "User Name", onLogout
       </Wrapper>
     </HeaderContainer>
   );
-};
+};
