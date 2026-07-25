@@ -1,7 +1,5 @@
 import React from 'react';
 import styled from 'styled-components';
-import { signOut } from 'firebase/auth';
-import { auth } from '../../firebase';
 
 // --- TYPESCRIPT INTERFACE ---
 interface HeaderProps {
@@ -235,19 +233,8 @@ const LogoutIcon = () => (
 
 // --- COMPONENT ---
 
-export const Header: React.FC<HeaderProps> = ({ userName = "User Name", onLogout }) => {
-  const initial = userName ? userName.trim()[0].toUpperCase() : '';
-
-  const handleLogoutClick = async () => {
-    try {
-      await signOut(auth);
-      if (onLogout) {
-        onLogout();
-      }
-    } catch (err) {
-      console.error("Помилка при виході:", err);
-    }
-  };
+export const Header: React.FC<HeaderProps> = ({ userName, onLogout }) => {
+  const initial = userName && userName.trim() ? userName.trim()[0].toUpperCase() : '';
 
   return (
     <HeaderContainer>
@@ -256,14 +243,16 @@ export const Header: React.FC<HeaderProps> = ({ userName = "User Name", onLogout
           <LogoText>INVESTIQ</LogoText>
         </LogoLink>
 
-        <UserBlock>
-          <Avatar>{initial}</Avatar>
-          <UserName>{userName}</UserName>
-          <LogoutBtn onClick={handleLogoutClick} title="Вийти">
-            <span className="logout-text">Вийти</span>
-            <LogoutIcon />
-          </LogoutBtn>
-        </UserBlock>
+        {userName && (
+          <UserBlock>
+            <Avatar>{initial}</Avatar>
+            <UserName>{userName}</UserName>
+            <LogoutBtn onClick={onLogout} title="Вийти">
+              <span className="logout-text">Вийти</span>
+              <LogoutIcon />
+            </LogoutBtn>
+          </UserBlock>
+        )}
       </Wrapper>
     </HeaderContainer>
   );

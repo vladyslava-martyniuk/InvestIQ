@@ -1,10 +1,10 @@
 import React, { useState } from "react";
 import styled from "styled-components";
 import { FcGoogle } from "react-icons/fc";
-import { 
-  createUserWithEmailAndPassword, 
-  signInWithEmailAndPassword, 
-  signInWithPopup 
+import {
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  signInWithPopup,
 } from "firebase/auth";
 import { auth, googleProvider } from "../firebase";
 
@@ -82,6 +82,10 @@ const GoogleButton = styled.button`
   &:hover {
     background-color: #e9ecef;
   }
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
 `;
 
 const DividerText = styled.p`
@@ -127,14 +131,6 @@ const Input = styled.input`
   }
 `;
 
-const ErrorText = styled.p`
-  color: #e53e3e;
-  font-size: 12px;
-  text-align: center;
-  margin-top: -10px;
-  margin-bottom: -10px;
-`;
-
 const ButtonGroup = styled.div`
   display: flex;
   gap: 15px;
@@ -158,11 +154,9 @@ const LoginButton = styled.button`
   &:hover {
     opacity: 0.9;
   }
-
   &:disabled {
-    background: #ccc;
+    opacity: 0.6;
     cursor: not-allowed;
-    box-shadow: none;
   }
 `;
 
@@ -182,27 +176,53 @@ const RegisterButton = styled.button`
   &:hover {
     background-color: #e2e8f0;
   }
-
   &:disabled {
-    background-color: #eee;
+    opacity: 0.6;
     cursor: not-allowed;
   }
+`;
+
+const ErrorMessage = styled.p`
+  color: #e53e3e;
+  font-size: 13px;
+  text-align: center;
+  margin: 10px 0 0 0;
+`;
+
+const SuccessMessage = styled.p`
+  color: #38a169;
+  font-size: 13px;
+  text-align: center;
+  margin: 10px 0 0 0;
 `;
 
 export const LoginPage: React.FC = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setMessage(null);
     setLoading(true);
     try {
       await signInWithEmailAndPassword(auth, email, password);
+      setMessage("Успішний вхід!");
     } catch (err: any) {
-      setError(err.message || "Помилка при вході");
+      if (
+        err.code === "auth/invalid-credential" ||
+        err.code === "auth/user-not-found" ||
+        err.code === "auth/wrong-password"
+      ) {
+        setError("Невірний email або пароль.");
+      } else if (err.code === "auth/invalid-email") {
+        setError("Некоректний формат email.");
+      } else {
+        setError("Помилка входу: " + err.message);
+      }
     } finally {
       setLoading(false);
     }
@@ -210,15 +230,25 @@ export const LoginPage: React.FC = () => {
 
   const handleRegister = async () => {
     if (!email || !password) {
-      setError("Будь ласка, введіть email та пароль");
+      setError("Будь ласка, вкажіть email та пароль для реєстрації.");
       return;
     }
     setError(null);
+    setMessage(null);
     setLoading(true);
     try {
       await createUserWithEmailAndPassword(auth, email, password);
+      setMessage("Реєстрація успішна! Ви авторизовані.");
     } catch (err: any) {
-      setError(err.message || "Помилка при реєстрації");
+      if (err.code === "auth/email-already-in-use") {
+        setError("Користувач з таким email вже існує.");
+      } else if (err.code === "auth/weak-password") {
+        setError("Пароль має містити щонайменше 6 символів.");
+      } else if (err.code === "auth/invalid-email") {
+        setError("Некоректний формат email.");
+      } else {
+        setError("Помилка реєстрації: " + err.message);
+      }
     } finally {
       setLoading(false);
     }
@@ -226,11 +256,13 @@ export const LoginPage: React.FC = () => {
 
   const handleGoogleSignIn = async () => {
     setError(null);
+    setMessage(null);
     setLoading(true);
     try {
       await signInWithPopup(auth, googleProvider);
+      setMessage("Успішний вхід через Google!");
     } catch (err: any) {
-      setError(err.message || "Помилка при вході через Google");
+      setError("Помилка авторизації через Google: " + err.message);
     } finally {
       setLoading(false);
     }
@@ -257,27 +289,28 @@ export const LoginPage: React.FC = () => {
             <Form onSubmit={handleLogin}>
               <FormGroup>
                 <Label>Електронна пошта:</Label>
-                <Input 
-                  type="email" 
-                  placeholder="your@email.com" 
-                  value={email} 
-                  onChange={(e) => setEmail(e.target.value)} 
-                  required 
+                <Input
+                  type="email"
+                  placeholder="your@email.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
                 />
               </FormGroup>
 
               <FormGroup>
                 <Label>Пароль:</Label>
-                <Input 
-                  type="password" 
-                  placeholder="••••••••" 
-                  value={password} 
-                  onChange={(e) => setPassword(e.target.value)} 
-                  required 
+                <Input
+                  type="password"
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
                 />
               </FormGroup>
 
-              {error && <ErrorText>{error}</ErrorText>}
+              {error && <ErrorMessage>{error}</ErrorMessage>}
+              {message && <SuccessMessage>{message}</SuccessMessage>}
 
               <ButtonGroup>
                 <LoginButton type="submit" disabled={loading}>
