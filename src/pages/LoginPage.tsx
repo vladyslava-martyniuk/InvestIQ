@@ -1,6 +1,12 @@
 import React, { useState } from "react";
 import styled from "styled-components";
 import { FcGoogle } from "react-icons/fc";
+import {
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  signInWithPopup,
+} from "firebase/auth";
+import { auth, googleProvider } from "../firebase";
 
 const PageBox = styled.div`
   display: flex;
@@ -76,6 +82,10 @@ const GoogleButton = styled.button`
   &:hover {
     background-color: #e9ecef;
   }
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
 `;
 
 const DividerText = styled.p`
@@ -107,7 +117,7 @@ const Input = styled.input`
   border: 1px solid transparent;
   border-radius: 30px;
   font-size: 14px;
-  color: #a6abb9;
+  color: #52555f;
   outline: none;
   transition: border 0.2s ease, color 0.2s ease;
 
@@ -144,6 +154,10 @@ const LoginButton = styled.button`
   &:hover {
     opacity: 0.9;
   }
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
 `;
 
 const RegisterButton = styled.button`
@@ -162,11 +176,97 @@ const RegisterButton = styled.button`
   &:hover {
     background-color: #e2e8f0;
   }
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+`;
+
+const ErrorMessage = styled.p`
+  color: #e53e3e;
+  font-size: 13px;
+  text-align: center;
+  margin: 10px 0 0 0;
+`;
+
+const SuccessMessage = styled.p`
+  color: #38a169;
+  font-size: 13px;
+  text-align: center;
+  margin: 10px 0 0 0;
 `;
 
 export const LoginPage: React.FC = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setMessage(null);
+    setLoading(true);
+    try {
+      await signInWithEmailAndPassword(auth, email, password);
+      setMessage("Успішний вхід!");
+    } catch (err: any) {
+      if (
+        err.code === "auth/invalid-credential" ||
+        err.code === "auth/user-not-found" ||
+        err.code === "auth/wrong-password"
+      ) {
+        setError("Невірний email або пароль.");
+      } else if (err.code === "auth/invalid-email") {
+        setError("Некоректний формат email.");
+      } else {
+        setError("Помилка входу: " + err.message);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRegister = async () => {
+    if (!email || !password) {
+      setError("Будь ласка, вкажіть email та пароль для реєстрації.");
+      return;
+    }
+    setError(null);
+    setMessage(null);
+    setLoading(true);
+    try {
+      await createUserWithEmailAndPassword(auth, email, password);
+      setMessage("Реєстрація успішна! Ви авторизовані.");
+    } catch (err: any) {
+      if (err.code === "auth/email-already-in-use") {
+        setError("Користувач з таким email вже існує.");
+      } else if (err.code === "auth/weak-password") {
+        setError("Пароль має містити щонайменше 6 символів.");
+      } else if (err.code === "auth/invalid-email") {
+        setError("Некоректний формат email.");
+      } else {
+        setError("Помилка реєстрації: " + err.message);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    setError(null);
+    setMessage(null);
+    setLoading(true);
+    try {
+      await signInWithPopup(auth, googleProvider);
+      setMessage("Успішний вхід через Google!");
+    } catch (err: any) {
+      setError("Помилка авторизації через Google: " + err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <PageBox>
@@ -179,27 +279,46 @@ export const LoginPage: React.FC = () => {
           <CardContainer>
             <InstructionText>Ви можете авторизуватися за допомогою акаунта Google</InstructionText>
 
-            <GoogleButton type="button">
+            <GoogleButton type="button" onClick={handleGoogleSignIn} disabled={loading}>
               <FcGoogle size={20} />
               <span>Google</span>
             </GoogleButton>
 
             <DividerText>Або увійти за допомогою ел. пошти та паролю після реєстрації</DividerText>
 
-            <Form>
+            <Form onSubmit={handleLogin}>
               <FormGroup>
                 <Label>Електронна пошта:</Label>
-                <Input type="email" placeholder="your@email.com" value={email} onChange={(e) => setEmail(e.target.value)} required />
+                <Input
+                  type="email"
+                  placeholder="your@email.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                />
               </FormGroup>
 
               <FormGroup>
                 <Label>Пароль:</Label>
-                <Input type="password" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} required />
+                <Input
+                  type="password"
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                />
               </FormGroup>
 
+              {error && <ErrorMessage>{error}</ErrorMessage>}
+              {message && <SuccessMessage>{message}</SuccessMessage>}
+
               <ButtonGroup>
-                <LoginButton type="submit">УВІЙТИ</LoginButton>
-                <RegisterButton type="button">РЕЄСТРАЦІЯ</RegisterButton>
+                <LoginButton type="submit" disabled={loading}>
+                  УВІЙТИ
+                </LoginButton>
+                <RegisterButton type="button" onClick={handleRegister} disabled={loading}>
+                  РЕЄСТРАЦІЯ
+                </RegisterButton>
               </ButtonGroup>
             </Form>
           </CardContainer>
@@ -208,3 +327,4 @@ export const LoginPage: React.FC = () => {
     </PageBox>
   );
 };
+
