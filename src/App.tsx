@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { onAuthStateChanged, signOut, User } from 'firebase/auth';
 import { auth } from './firebase.ts';
 import { Header } from './components/Header/Header.tsx';
+import { Balance } from './components/Balance/Balance.tsx';
 import { LoginPage } from './pages/LoginPage.tsx';
 
 const App: React.FC = () => {
@@ -39,6 +40,7 @@ const App: React.FC = () => {
     <div>
       <Header userName={userName} onLogout={handleLogout} />
       {!user && <LoginPage />}
+      <Balance />
     </div>
   );
 };
