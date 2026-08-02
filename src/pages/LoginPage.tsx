@@ -7,6 +7,7 @@ import {
   signInWithPopup,
 } from "firebase/auth";
 import { auth, googleProvider } from "../firebase";
+import { Header } from '../components/Header/Header.tsx';
 
 const PageBox = styled.div`
   display: flex;
@@ -195,8 +196,7 @@ const SuccessMessage = styled.p`
   text-align: center;
   margin: 10px 0 0 0;
 `;
-
-export const LoginPage: React.FC = () => {
+ const LoginPage: React.FC = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -268,8 +268,10 @@ export const LoginPage: React.FC = () => {
     }
   };
 
-  return (
+  return ( <>
+  <Header />
     <PageBox>
+     
       <MainContainer>
         <LeftBox>
           <Title>InvestIQ</Title>
@@ -324,7 +326,8 @@ export const LoginPage: React.FC = () => {
           </CardContainer>
         </RighBox>
       </MainContainer>
-    </PageBox>
+    </PageBox></>
   );
 };
 
+export default LoginPage;
