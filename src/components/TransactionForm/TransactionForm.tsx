@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import styled from 'styled-components';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { db } from '../../firebase/config'; // Переконайся, що шлях до файлу з getFirestore(app) правильний
 
 interface TransactionData {
   date: string;
@@ -10,9 +12,10 @@ interface TransactionData {
 
 interface TransactionFormProps {
   onSubmit?: (data: TransactionData) => void;
+  type?: 'expense' | 'income'; // Для визначення типу транзакції (витрати чи дохід)
 }
 
-export const TransactionForm: React.FC<TransactionFormProps> = ({ onSubmit }) => {
+export const TransactionForm: React.FC<TransactionFormProps> = ({ onSubmit, type = 'expense' }) => {
   const [date, setDate] = useState<string>('2019-11-21');
   const [description, setDescription] = useState<string>('');
   const [category, setCategory] = useState<string>('');
@@ -24,7 +27,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ onSubmit }) =>
     setAmount('');
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const numericAmount = parseFloat(amount.replace(',', '.'));
     
@@ -32,16 +35,29 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ onSubmit }) =>
       return;
     }
 
-    if (onSubmit) {
-      onSubmit({
-        date,
-        description,
-        category,
-        amount: numericAmount,
-      });
-    }
+    const transactionData = {
+      date,
+      description,
+      category,
+      amount: numericAmount,
+      type,
+    };
 
-    handleClear();
+    try {
+      // Відправка даних у колекцію "transactions" Firebase Firestore
+      await addDoc(collection(db, 'transactions'), {
+        ...transactionData,
+        createdAt: serverTimestamp(),
+      });
+
+      if (onSubmit) {
+        onSubmit(transactionData);
+      }
+
+      handleClear();
+    } catch (error) {
+      console.error('Помилка при додаванні в Firebase:', error);
+    }
   };
 
   return (
