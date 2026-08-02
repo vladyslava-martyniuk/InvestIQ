@@ -4,6 +4,7 @@ import { onAuthStateChanged, signOut, User } from 'firebase/auth';
 import { auth } from './firebase.ts';
 import { Header } from './components/Header/Header.tsx';
 import { Balance } from './components/Balance/Balance.tsx';
+import { TransactionForm } from './components/TransactionForm/TransactionForm.tsx';
 import { LoginPage } from './pages/LoginPage.tsx';
 import { Compilation } from './components/Compilation/Compilation.tsx';
 import { TransactionsTable } from './components/TransactionsTable.tsx';
@@ -47,9 +48,10 @@ const App: React.FC = () => {
     <div>
       <Header userName={userName} onLogout={handleLogout} />
       {!user && <LoginPage />}
-      <Balance />
-      <Compilation />
+      <Balance />  
+      <TransactionForm /> 
       <TransactionsTable items={transactions} />
+      <Compilation />
     </div>
   );
 };
