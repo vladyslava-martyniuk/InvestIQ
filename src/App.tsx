@@ -5,7 +5,14 @@ import { auth } from './firebase.ts';
 import { Header } from './components/Header/Header.tsx';
 import { Balance } from './components/Balance/Balance.tsx';
 import { LoginPage } from './pages/LoginPage.tsx';
+import { Compilation } from './components/Compilation/Compilation.tsx';
+import { TransactionsTable } from './components/TransactionsTable.tsx';
+import { Transaction } from './types/types.ts';
 
+const transactions: Transaction[] = [
+  { id: "1", date: "2023-08-01", amount: 100, category: "Food", description: "Burger", type: "expense" },
+  { id: "2", date: "2023-08-02", amount: 50, category: "Entertainment", description: "Movie", type: "expense" },
+];
 const App: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
@@ -41,6 +48,8 @@ const App: React.FC = () => {
       <Header userName={userName} onLogout={handleLogout} />
       {!user && <LoginPage />}
       <Balance />
+      <Compilation />
+      <TransactionsTable items={transactions} />
     </div>
   );
 };

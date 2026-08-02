@@ -1,6 +1,6 @@
 import React from "react";
 import styled from "styled-components";
-import type { Transaction } from "../types/types";
+import type {Transaction } from "../types/types";
 
 const dateFmt = new Intl.DateTimeFormat("uk-UA", { day: "2-digit", month: "short" });
 const moneyFmt = new Intl.NumberFormat("uk-UA", {
