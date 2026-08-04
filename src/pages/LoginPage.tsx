@@ -196,7 +196,20 @@ const SuccessMessage = styled.p`
   text-align: center;
   margin: 10px 0 0 0;
 `;
- const LoginPage: React.FC = () => {
+
+type FirebaseAuthError = {
+  code?: string;
+  message?: string;
+};
+
+const getFirebaseAuthError = (error: unknown): FirebaseAuthError => {
+  if (typeof error === "object" && error !== null) {
+    return error as FirebaseAuthError;
+  }
+  return { message: String(error) };
+};
+
+const LoginPage: React.FC = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -211,17 +224,18 @@ const SuccessMessage = styled.p`
     try {
       await signInWithEmailAndPassword(auth, email, password);
       setMessage("Успішний вхід!");
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const firebaseError = getFirebaseAuthError(err);
       if (
-        err.code === "auth/invalid-credential" ||
-        err.code === "auth/user-not-found" ||
-        err.code === "auth/wrong-password"
+        firebaseError.code === "auth/invalid-credential" ||
+        firebaseError.code === "auth/user-not-found" ||
+        firebaseError.code === "auth/wrong-password"
       ) {
         setError("Невірний email або пароль.");
-      } else if (err.code === "auth/invalid-email") {
+      } else if (firebaseError.code === "auth/invalid-email") {
         setError("Некоректний формат email.");
       } else {
-        setError("Помилка входу: " + err.message);
+        setError("Помилка входу: " + (firebaseError.message || "Неочікувана помилка."));
       }
     } finally {
       setLoading(false);
@@ -239,15 +253,16 @@ const SuccessMessage = styled.p`
     try {
       await createUserWithEmailAndPassword(auth, email, password);
       setMessage("Реєстрація успішна! Ви авторизовані.");
-    } catch (err: any) {
-      if (err.code === "auth/email-already-in-use") {
+    } catch (err: unknown) {
+      const firebaseError = getFirebaseAuthError(err);
+      if (firebaseError.code === "auth/email-already-in-use") {
         setError("Користувач з таким email вже існує.");
-      } else if (err.code === "auth/weak-password") {
+      } else if (firebaseError.code === "auth/weak-password") {
         setError("Пароль має містити щонайменше 6 символів.");
-      } else if (err.code === "auth/invalid-email") {
+      } else if (firebaseError.code === "auth/invalid-email") {
         setError("Некоректний формат email.");
       } else {
-        setError("Помилка реєстрації: " + err.message);
+        setError("Помилка реєстрації: " + (firebaseError.message || "Неочікувана помилка."));
       }
     } finally {
       setLoading(false);
@@ -261,8 +276,9 @@ const SuccessMessage = styled.p`
     try {
       await signInWithPopup(auth, googleProvider);
       setMessage("Успішний вхід через Google!");
-    } catch (err: any) {
-      setError("Помилка авторизації через Google: " + err.message);
+    } catch (err: unknown) {
+      const firebaseError = getFirebaseAuthError(err);
+      setError("Помилка авторизації через Google: " + (firebaseError.message || "Неочікувана помилка."));
     } finally {
       setLoading(false);
     }
