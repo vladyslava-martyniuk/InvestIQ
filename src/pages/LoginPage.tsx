@@ -6,8 +6,9 @@ import {
   createUserWithEmailAndPassword,
   signInWithPopup,
 } from "firebase/auth";
+import { useNavigate } from "react-router-dom";
 import { auth, googleProvider } from "../firebase";
-import { Header } from '../components/Header/Header.tsx';
+import { Header } from "../components/Header/Header";
 
 const PageBox = styled.div`
   display: flex;
@@ -80,15 +81,16 @@ const GoogleButton = styled.button`
   font-weight: 600;
   cursor: pointer;
   transition: background-color 0.2s ease;
+
   &:hover {
     background-color: #e9ecef;
   }
+
   &:disabled {
     opacity: 0.6;
     cursor: not-allowed;
   }
 `;
-
 const DividerText = styled.p`
   font-size: 13px;
   color: #52555f;
@@ -155,6 +157,7 @@ const LoginButton = styled.button`
   &:hover {
     opacity: 0.9;
   }
+
   &:disabled {
     opacity: 0.6;
     cursor: not-allowed;
@@ -177,6 +180,7 @@ const RegisterButton = styled.button`
   &:hover {
     background-color: #e2e8f0;
   }
+
   &:disabled {
     opacity: 0.6;
     cursor: not-allowed;
@@ -206,26 +210,31 @@ const getFirebaseAuthError = (error: unknown): FirebaseAuthError => {
   if (typeof error === "object" && error !== null) {
     return error as FirebaseAuthError;
   }
+
   return { message: String(error) };
 };
 
 const LoginPage: React.FC = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
 
-  const handleLogin = async (e: React.FormEvent) => {
+    const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setMessage(null);
     setLoading(true);
+
     try {
       await signInWithEmailAndPassword(auth, email, password);
       setMessage("Успішний вхід!");
+      navigate("/home");
     } catch (err: unknown) {
       const firebaseError = getFirebaseAuthError(err);
+
       if (
         firebaseError.code === "auth/invalid-credential" ||
         firebaseError.code === "auth/user-not-found" ||
@@ -235,7 +244,10 @@ const LoginPage: React.FC = () => {
       } else if (firebaseError.code === "auth/invalid-email") {
         setError("Некоректний формат email.");
       } else {
-        setError("Помилка входу: " + (firebaseError.message || "Неочікувана помилка."));
+        setError(
+          "Помилка входу: " +
+            (firebaseError.message || "Неочікувана помилка.")
+        );
       }
     } finally {
       setLoading(false);
@@ -247,14 +259,18 @@ const LoginPage: React.FC = () => {
       setError("Будь ласка, вкажіть email та пароль для реєстрації.");
       return;
     }
+
     setError(null);
     setMessage(null);
     setLoading(true);
+
     try {
       await createUserWithEmailAndPassword(auth, email, password);
       setMessage("Реєстрація успішна! Ви авторизовані.");
+      navigate("/home");
     } catch (err: unknown) {
       const firebaseError = getFirebaseAuthError(err);
+
       if (firebaseError.code === "auth/email-already-in-use") {
         setError("Користувач з таким email вже існує.");
       } else if (firebaseError.code === "auth/weak-password") {
@@ -262,7 +278,10 @@ const LoginPage: React.FC = () => {
       } else if (firebaseError.code === "auth/invalid-email") {
         setError("Некоректний формат email.");
       } else {
-        setError("Помилка реєстрації: " + (firebaseError.message || "Неочікувана помилка."));
+        setError(
+          "Помилка реєстрації: " +
+            (firebaseError.message || "Неочікувана помилка.")
+        );
       }
     } finally {
       setLoading(false);
@@ -273,76 +292,97 @@ const LoginPage: React.FC = () => {
     setError(null);
     setMessage(null);
     setLoading(true);
+
     try {
       await signInWithPopup(auth, googleProvider);
       setMessage("Успішний вхід через Google!");
+      navigate("/home");
     } catch (err: unknown) {
       const firebaseError = getFirebaseAuthError(err);
-      setError("Помилка авторизації через Google: " + (firebaseError.message || "Неочікувана помилка."));
+
+      setError(
+        "Помилка авторизації через Google: " +
+          (firebaseError.message || "Неочікувана помилка.")
+      );
     } finally {
       setLoading(false);
     }
   };
 
-  return ( <>
-  <Header />
-    <PageBox>
-     
-      <MainContainer>
-        <LeftBox>
-          <Title>InvestIQ</Title>
-          <Subtitle>SMART FINANCE</Subtitle>
-        </LeftBox>
-        <RighBox>
-          <CardContainer>
-            <InstructionText>Ви можете авторизуватися за допомогою акаунта Google</InstructionText>
+  return (
+    <>
+      <Header />
+      <PageBox>
+        <MainContainer>
+          <LeftBox>
+            <Title>InvestIQ</Title>
+            <Subtitle>SMART FINANCE</Subtitle>
+          </LeftBox>
 
-            <GoogleButton type="button" onClick={handleGoogleSignIn} disabled={loading}>
-              <FcGoogle size={20} />
-              <span>Google</span>
-            </GoogleButton>
+          <RighBox>
+            <CardContainer>
+              <InstructionText>
+                Ви можете авторизуватися за допомогою акаунта Google
+              </InstructionText>
 
-            <DividerText>Або увійти за допомогою ел. пошти та паролю після реєстрації</DividerText>
+              <GoogleButton
+                type="button"
+                onClick={handleGoogleSignIn}
+                disabled={loading}
+              >
+                <FcGoogle size={20} />
+                <span>Google</span>
+              </GoogleButton>
 
-            <Form onSubmit={handleLogin}>
-              <FormGroup>
-                <Label>Електронна пошта:</Label>
-                <Input
-                  type="email"
-                  placeholder="your@email.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                />
-              </FormGroup>
+              <DividerText>
+                Або увійти за допомогою ел. пошти та паролю після реєстрації
+              </DividerText>
 
-              <FormGroup>
-                <Label>Пароль:</Label>
-                <Input
-                  type="password"
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                />
-              </FormGroup>
+              <Form onSubmit={handleLogin}>
+                                <FormGroup>
+                  <Label>Електронна пошта:</Label>
+                  <Input
+                    type="email"
+                    placeholder="your@email.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                  />
+                </FormGroup>
 
-              {error && <ErrorMessage>{error}</ErrorMessage>}
-              {message && <SuccessMessage>{message}</SuccessMessage>}
+                <FormGroup>
+                  <Label>Пароль:</Label>
+                  <Input
+                    type="password"
+                    placeholder="••••••••"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                  />
+                </FormGroup>
 
-              <ButtonGroup>
-                <LoginButton type="submit" disabled={loading}>
-                  УВІЙТИ
-                </LoginButton>
-                <RegisterButton type="button" onClick={handleRegister} disabled={loading}>
-                  РЕЄСТРАЦІЯ
-                </RegisterButton>
-              </ButtonGroup>
-            </Form>
-          </CardContainer>
-        </RighBox>
-      </MainContainer>
-    </PageBox></>
+                {error && <ErrorMessage>{error}</ErrorMessage>}
+                {message && <SuccessMessage>{message}</SuccessMessage>}
+
+                <ButtonGroup>
+                  <LoginButton type="submit" disabled={loading}>
+                    УВІЙТИ
+                  </LoginButton>
+
+                  <RegisterButton
+                    type="button"
+                    onClick={handleRegister}
+                    disabled={loading}
+                  >
+                    РЕЄСТРАЦІЯ
+                  </RegisterButton>
+                </ButtonGroup>
+              </Form>
+            </CardContainer>
+          </RighBox>
+        </MainContainer>
+      </PageBox>
+    </>
   );
 };
 
