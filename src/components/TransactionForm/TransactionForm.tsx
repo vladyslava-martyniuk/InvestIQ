@@ -1,7 +1,11 @@
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
-import { db } from '../../firebase/config'; // Переконайся, що шлях до файлу з getFirestore(app) правильний
+import {
+  collection,
+  addDoc,
+  serverTimestamp,
+} from 'firebase/firestore';
+import { db } from '../../firebase/config';
 
 interface TransactionData {
   date: string;
@@ -12,69 +16,107 @@ interface TransactionData {
 
 interface TransactionFormProps {
   onSubmit?: (data: TransactionData) => void;
-  type?: 'expense' | 'income'; // Для визначення типу транзакції (витрати чи дохід)
+  type?: 'expense' | 'income';
 }
 
-export const TransactionForm: React.FC<TransactionFormProps> = ({ onSubmit, type = 'expense' }) => {
-  const [date, setDate] = useState<string>('2019-11-21');
-  const [description, setDescription] = useState<string>('');
-  const [category, setCategory] = useState<string>('');
-  const [amount, setAmount] = useState<string>('');
+export const TransactionForm: React.FC<TransactionFormProps> = ({
+  onSubmit,
+  type = 'expense',
+}) => {
+  const today = new Date().toISOString().split('T')[0];
+
+  const [date, setDate] = useState(today);
+  const [description, setDescription] = useState('');
+  const [category, setCategory] = useState('');
+  const [amount, setAmount] = useState('');
 
   const handleClear = () => {
     setDescription('');
     setCategory('');
     setAmount('');
+    setDate(today);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const numericAmount = parseFloat(amount.replace(',', '.'));
-    
-    if (!description || !category || isNaN(numericAmount) || numericAmount <= 0) {
+
+    const numericAmount = Number(amount.replace(',', '.'));
+
+    if (!description.trim()) {
+      alert('Введіть опис');
+      return;
+    }
+
+    if (!category) {
+      alert('Оберіть категорію');
+      return;
+    }
+
+    if (isNaN(numericAmount) || numericAmount <= 0) {
+      alert('Введіть правильну суму');
       return;
     }
 
     const transactionData = {
       date,
-      description,
+      description: description.trim(),
       category,
       amount: numericAmount,
       type,
     };
 
     try {
-      // Відправка даних у колекцію "transactions" Firebase Firestore
-      await addDoc(collection(db, 'transactions'), {
-        ...transactionData,
-        createdAt: serverTimestamp(),
-      });
+      const docRef = await addDoc(
+        collection(db, 'transactions'),
+        {
+          ...transactionData,
+          createdAt: serverTimestamp(),
+        }
+      );
+
+      console.log('Транзакцію успішно додано!');
+      console.log('ID документа:', docRef.id);
 
       if (onSubmit) {
-        onSubmit(transactionData);
+        onSubmit({
+          date,
+          description: description.trim(),
+          category,
+          amount: numericAmount,
+        });
       }
 
       handleClear();
     } catch (error) {
-      console.error('Помилка при додаванні в Firebase:', error);
+      console.error('Помилка Firebase:', error);
+      alert('Не вдалося зберегти транзакцію');
     }
   };
 
   return (
     <FormContainer onSubmit={handleSubmit}>
-      {/* Вибір дати */}
       <DatePickerWrapper>
-        <CalendarIcon viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M6 2V4M14 2V4M3 8H17M4 4H16C17.1046 4 18 4.89543 18 6V16C18 17.1046 17.1046 18 16 18H4C2.89543 18 2 17.1046 2 16V6C2 4.89543 2.89543 4 4 4Z" stroke="#52555F" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+        <CalendarIcon
+          viewBox="0 0 20 20"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <path
+            d="M6 2V4M14 2V4M3 8H17M4 4H16C17.1046 4 18 4.89543 18 6V16C18 17.1046 17.1046 18 16 18H4C2.89543 18 2 17.1046 2 16V6C2 4.89543 2.89543 4 4 4Z"
+            stroke="#52555F"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
         </CalendarIcon>
-        <DateInput 
-          type="date" 
-          value={date} 
-          onChange={(e) => setDate(e.target.value)} 
+
+        <DateInput
+          type="date"
+          value={date}
+          onChange={(e) => setDate(e.target.value)}
         />
       </DatePickerWrapper>
 
-      {/* Суцільна трикомпонентна група інпутів */}
       <InputsGroup>
         <InputDescription
           type="text"
@@ -82,13 +124,16 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ onSubmit, type
           value={description}
           onChange={(e) => setDescription(e.target.value)}
         />
-        
+
         <SelectCategoryWrapper>
-          <SelectCategory 
-            value={category} 
+          <SelectCategory
+            value={category}
             onChange={(e) => setCategory(e.target.value)}
           >
-            <option value="" disabled hidden>Категорія товару</option>
+            <option value="" disabled hidden>
+              Категорія товару
+            </option>
+
             <option value="Транспорт">Транспорт</option>
             <option value="Продукти">Продукти</option>
             <option value="Здоров'я">Здоров'я</option>
@@ -96,13 +141,21 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ onSubmit, type
             <option value="Розваги">Розваги</option>
             <option value="Все для дому">Все для дому</option>
             <option value="Техніка">Техніка</option>
-            <option value="Комуналка, зв'язок">Комуналка, зв'язок</option>
+            <option value="Комуналка, зв'язок">
+              Комуналка, зв'язок
+            </option>
             <option value="Спорт, хобі">Спорт, хобі</option>
             <option value="Навчання">Навчання</option>
             <option value="Інше">Інше</option>
           </SelectCategory>
+
           <ArrowIcon viewBox="0 0 12 7" fill="none">
-            <path d="M1 1L6 5L11 1" stroke="#52555F" strokeWidth="2" strokeLinecap="round"/>
+            <path
+              d="M1 1L6 5L11 1"
+              stroke="#52555F"
+              strokeWidth="2"
+              strokeLinecap="round"
+            />
           </ArrowIcon>
         </SelectCategoryWrapper>
 
@@ -113,23 +166,47 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ onSubmit, type
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
           />
+
           <CalculatorIcon viewBox="0 0 20 20" fill="none">
-            <rect x="3" y="2" width="14" height="16" rx="2" stroke="#52555F" strokeWidth="2"/>
-            <rect x="6" y="5" width="8" height="3" fill="#52555F"/>
-            <circle cx="7" cy="11" r="1" fill="#52555F"/>
-            <circle cx="10" cy="11" r="1" fill="#52555F"/>
-            <circle cx="13" cy="11" r="1" fill="#52555F"/>
-            <circle cx="7" cy="14" r="1" fill="#52555F"/>
-            <circle cx="10" cy="14" r="1" fill="#52555F"/>
-            <circle cx="13" cy="14" r="1" fill="#52555F"/>
+            <rect
+              x="3"
+              y="2"
+              width="14"
+              height="16"
+              rx="2"
+              stroke="#52555F"
+              strokeWidth="2"
+            />
+
+            <rect
+              x="6"
+              y="5"
+              width="8"
+              height="3"
+              fill="#52555F"
+            />
+
+            <circle cx="7" cy="11" r="1" fill="#52555F" />
+            <circle cx="10" cy="11" r="1" fill="#52555F" />
+            <circle cx="13" cy="11" r="1" fill="#52555F" />
+            <circle cx="7" cy="14" r="1" fill="#52555F" />
+            <circle cx="10" cy="14" r="1" fill="#52555F" />
+            <circle cx="13" cy="14" r="1" fill="#52555F" />
           </CalculatorIcon>
         </AmountWrapper>
       </InputsGroup>
 
-      {/* Блок кнопок */}
       <ButtonGroup>
-        <SubmitButton type="submit">ВВЕСТИ</SubmitButton>
-        <ClearButton type="button" onClick={handleClear}>ОЧИСТИТИ</ClearButton>
+        <SubmitButton type="submit">
+          ВВЕСТИ
+        </SubmitButton>
+
+        <ClearButton
+          type="button"
+          onClick={handleClear}
+        >
+          ОЧИСТИТИ
+        </ClearButton>
       </ButtonGroup>
     </FormContainer>
   );
