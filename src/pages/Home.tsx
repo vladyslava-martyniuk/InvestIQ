@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { onAuthStateChanged, signOut, User } from 'firebase/auth';
 import { auth } from '../firebase.ts';
@@ -8,15 +7,16 @@ import { TransactionForm } from '../components/TransactionForm/TransactionForm.t
 
 import { Compilation } from '../components/Compilation/Compilation.tsx';
 import { TransactionsTable } from '../components/TransactionsTable.tsx';
-import { Transaction } from '../types/types.ts';
+import type { Transaction } from '../types/types.ts';
+import {
+  subscribeToTransactions,
+  deleteTransactionFromDb,
+} from '../services/transactionsApi.ts';
 
-const transactions: Transaction[] = [
-  { id: "1", date: "2023-08-01", amount: 100, category: "Food", description: "Burger", type: "expense" },
-  { id: "2", date: "2023-08-02", amount: 50, category: "Entertainment", description: "Movie", type: "expense" },
-];
 const Home: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
@@ -26,11 +26,24 @@ const Home: React.FC = () => {
     return () => unsubscribe();
   }, []);
 
+  useEffect(() => {
+    const unsubscribe = subscribeToTransactions(setTransactions);
+    return () => unsubscribe();
+  }, []);
+
   const handleLogout = async () => {
     try {
       await signOut(auth);
     } catch (error) {
       console.error("Error logging out:", error);
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    try {
+      await deleteTransactionFromDb(id);
+    } catch {
+      alert('Не вдалося видалити транзакцію');
     }
   };
 
@@ -50,7 +63,7 @@ const Home: React.FC = () => {
      
       <Balance />  
       <TransactionForm /> 
-      <TransactionsTable items={transactions} />
+      <TransactionsTable items={transactions} onDelete={handleDelete} />
       <Compilation />
     </div>
   );
