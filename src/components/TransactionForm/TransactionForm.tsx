@@ -194,8 +194,22 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
             <circle cx="13" cy="14" r="1" fill="#52555F" />
           </CalculatorIcon>
         </AmountWrapper>
-      </InputsGroup>
+        <SelectCategoryWrapper>
+          <SelectCategory
+            value={category}
+            onChange={(e) => setCategory(e.target.value)}
+          >
+            <option value="" disabled hidden>
+              Категорія  дії
+            </option>
 
+            <option value="Income">Дохід</option>
+            <option value="Expense">Витрати</option>
+            
+          </SelectCategory>
+          </SelectCategoryWrapper>
+      </InputsGroup>
+     
       <ButtonGroup>
         <SubmitButton type="submit">
           ВВЕСТИ

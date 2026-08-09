@@ -28,6 +28,10 @@ const Home: React.FC = () => {
   }, []);
 
   const navigate = useNavigate();
+    useEffect(() => {
+    const unsubscribe = subscribeToTransactions(setTransactions);
+    return () => unsubscribe();
+  }, []);
 
   const handleLogout = async () => {
     try {
