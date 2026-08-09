@@ -1,6 +1,6 @@
 import React from "react";
 import styled from "styled-components";
-import type {Transaction } from "../types/types";
+import type { Transaction } from "../types/types";
 
 const dateFmt = new Intl.DateTimeFormat("uk-UA", { day: "2-digit", month: "short" });
 const moneyFmt = new Intl.NumberFormat("uk-UA", {
@@ -120,12 +120,12 @@ const DateCell = styled(Td)`
 `;
 
 const DescCell = styled(Td)`
-  width: 40%;
+  width: 35%;
   font-weight: 500;
 `;
 
 const CategoryCell = styled(Td)`
-  width: 25%;
+  width: 22%;
 `;
 
 const AmountCell = styled(Td)<{ $positive: boolean }>`
@@ -138,6 +138,42 @@ const AmountCell = styled(Td)<{ $positive: boolean }>`
   @media (max-width: 640px) {
     text-align: left;
   }
+`;
+
+const ActionCell = styled(Td)`
+  width: 8%;
+  text-align: right;
+  padding-right: 24px;
+
+  @media (max-width: 640px) {
+    justify-content: flex-end;
+    padding-right: 0;
+  }
+`;
+
+const DeleteButton = styled.button`
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: #aab2c5;
+  cursor: pointer;
+  transition: background-color 0.2s ease, color 0.2s ease;
+
+  &:hover {
+    background-color: #f0f1f5;
+    color: #52555f;
+  }
+`;
+
+const TrashIcon = styled.svg`
+  width: 18px;
+  height: 18px;
 `;
 
 const Badge = styled.span`
@@ -161,9 +197,10 @@ const EmptyText = styled.p`
 
 interface TransactionsTableProps {
   items: Transaction[];
+  onDelete: (id: string) => void;
 }
 
-export const TransactionsTable: React.FC<TransactionsTableProps> = ({ items }) => {
+export const TransactionsTable: React.FC<TransactionsTableProps> = ({ items, onDelete }) => {
   if (items.length === 0) {
     return (
       <Card>
@@ -182,6 +219,7 @@ export const TransactionsTable: React.FC<TransactionsTableProps> = ({ items }) =
               <Th>Опис</Th>
               <Th>Категорія</Th>
               <Th>Сума</Th>
+              <Th />
             </tr>
           </Head>
           <tbody>
@@ -196,6 +234,19 @@ export const TransactionsTable: React.FC<TransactionsTableProps> = ({ items }) =
                   {tx.amount > 0 ? "+" : ""}
                   {moneyFmt.format(tx.amount)}
                 </AmountCell>
+                <ActionCell data-label="">
+                  <DeleteButton type="button" onClick={() => onDelete(tx.id)} title="Видалити">
+                    <TrashIcon viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <path
+                        d="M4 6.5h16M9.5 6.5V5a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1v1.5M6.5 6.5l.8 12.1a1.5 1.5 0 0 0 1.5 1.4h6.4a1.5 1.5 0 0 0 1.5-1.4l.8-12.1M10 10.5v6M14 10.5v6"
+                        stroke="currentColor"
+                        strokeWidth="1.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </TrashIcon>
+                  </DeleteButton>
+                </ActionCell>
               </Row>
             ))}
           </tbody>
