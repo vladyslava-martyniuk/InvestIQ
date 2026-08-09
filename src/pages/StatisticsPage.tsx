@@ -1,189 +1,191 @@
+/** НОВИЙ ФАЙЛ → src/pages/StatisticsPage.tsx */
 import { useMemo, useState } from "react";
 import styled from "styled-components";
 import { BarChart } from "../components/BarChart";
 import { MONTHS, fmt } from "../constants/statistics";
 import type { Transaction } from "../types/types";
 import {
-    buildPeriods,
-    getBalance,
-    getCategoryStats,
-    getDetailStats,
-    getFirstPeriod,
-    getTotals,
-    periodKey,
+  buildPeriods,
+  getBalance,
+  getCategoryStats,
+  getDetailStats,
+  getFirstPeriod,
+  getTotals,
+  periodKey,
 } from "../utils/stats";
 
 type Props = {
-    transactions: Transaction[];
-    /** Стартовий баланс рахунку */
-    initialBalance?: number;
-    onBack?: () => void;
+  /** Транзакції з Firestore. Якщо не передати — сторінка покаже порожній стан */
+  transactions?: Transaction[];
+  /** Стартовий баланс рахунку */
+  initialBalance?: number;
+  onBack?: () => void;
 };
 
 export default function StatisticsPage({
-    transactions,
-    initialBalance = 0,
-    onBack,
+  transactions = [],
+  initialBalance = 0,
+  onBack,
 }: Props) {
-    const [mode, setMode] = useState<"expense" | "income">("expense");
-    const [category, setCategory] = useState<string | null>(null);
-    const [startBalance, setStartBalance] = useState(initialBalance);
-    const [draft, setDraft] = useState(String(initialBalance));
+  const [mode, setMode] = useState<"expense" | "income">("expense");
+  const [category, setCategory] = useState<string | null>(null);
+  const [startBalance, setStartBalance] = useState(initialBalance);
+  const [draft, setDraft] = useState(String(initialBalance));
 
-    // Слайдер: від місяця першої транзакції до грудня 2033
-    const periods = useMemo(() => buildPeriods(transactions), [transactions]);
+  // Слайдер: від місяця першої транзакції до грудня 2033
+  const periods = useMemo(() => buildPeriods(transactions), [transactions]);
 
-    const [index, setIndex] = useState(0);
-    useMemo(() => {
-        const first = getFirstPeriod(transactions);
-        const i = periods.findIndex((p) => periodKey(p) === periodKey(first));
-        if (i > -1) setIndex(i);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [transactions.length]);
+  const [index, setIndex] = useState(0);
+  useMemo(() => {
+    const first = getFirstPeriod(transactions);
+    const i = periods.findIndex((p) => periodKey(p) === periodKey(first));
+    if (i > -1) setIndex(i);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [transactions.length]);
 
-    const period = periods[Math.min(index, periods.length - 1)];
+  const period = periods[Math.min(index, periods.length - 1)];
 
-    const totals = useMemo(() => getTotals(transactions, period), [transactions, period]);
-    const categories = useMemo(
-        () => getCategoryStats(transactions, period, mode),
-        [transactions, period, mode]
-    );
-    const details = useMemo(
-        () => getDetailStats(transactions, period, mode, category),
-        [transactions, period, mode, category]
-    );
-    const balance = useMemo(
-        () => getBalance(transactions, startBalance),
-        [transactions, startBalance]
-    );
+  const totals = useMemo(() => getTotals(transactions, period), [transactions, period]);
+  const categories = useMemo(
+    () => getCategoryStats(transactions, period, mode),
+    [transactions, period, mode]
+  );
+  const details = useMemo(
+    () => getDetailStats(transactions, period, mode, category),
+    [transactions, period, mode, category]
+  );
+  const balance = useMemo(
+    () => getBalance(transactions, startBalance),
+    [transactions, startBalance]
+  );
 
-    const go = (dir: number) =>
-        setIndex((i) => Math.min(Math.max(i + dir, 0), periods.length - 1));
+  const go = (dir: number) =>
+    setIndex((i) => Math.min(Math.max(i + dir, 0), periods.length - 1));
 
-    const toggleMode = () => {
-        setMode((m) => (m === "expense" ? "income" : "expense"));
-        setCategory(null);
-    };
+  const toggleMode = () => {
+    setMode((m) => (m === "expense" ? "income" : "expense"));
+    setCategory(null);
+  };
 
-    return (
-        <Page>
-            <Blob />
-            <Container>
-                {/* --- Верхня панель --- */}
-                <TopBar>
-                    <BackLink type="button" onClick={onBack}>
-                        <span aria-hidden>←</span> Повернутись на головну
-                    </BackLink>
+  return (
+    <Page>
+      <Blob />
+      <Container>
+        {/* --- Верхня панель --- */}
+        <TopBar>
+          <BackLink type="button" onClick={onBack}>
+            <span aria-hidden>←</span> Повернутись на головну
+          </BackLink>
 
-                    <BalanceForm
-                        onSubmit={(e) => {
-                            e.preventDefault();
-                            const v = Number(draft.replace(/\s/g, "").replace(",", "."));
-                            if (!Number.isNaN(v)) setStartBalance(v);
-                        }}
-                    >
-                        <MutedLabel>Баланс:</MutedLabel>
-                        <BalanceBox>
-                            <BalanceInput
-                                value={draft}
-                                onChange={(e) => setDraft(e.target.value)}
-                                onFocus={(e) => e.target.select()}
-                            />
-                            <Currency>UAH</Currency>
-                        </BalanceBox>
-                        <ConfirmBtn type="submit">ПІДТВЕРДИТИ</ConfirmBtn>
-                    </BalanceForm>
+          <BalanceForm
+            onSubmit={(e) => {
+              e.preventDefault();
+              const v = Number(draft.replace(/\s/g, "").replace(",", "."));
+              if (!Number.isNaN(v)) setStartBalance(v);
+            }}
+          >
+            <MutedLabel>Баланс:</MutedLabel>
+            <BalanceBox>
+              <BalanceInput
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                onFocus={(e) => e.target.select()}
+              />
+              <Currency>UAH</Currency>
+            </BalanceBox>
+            <ConfirmBtn type="submit">ПІДТВЕРДИТИ</ConfirmBtn>
+          </BalanceForm>
 
-                    {/* --- Слайдер періоду --- */}
-                    <Period>
-                        <MutedLabel>Поточний період</MutedLabel>
-                        <PeriodRow>
-                            <Arrow type="button" onClick={() => go(-1)} disabled={index === 0}>
-                                ‹
-                            </Arrow>
-                            <PeriodValue>
-                                {MONTHS[period.month]}
-                                <br />
-                                {period.year}
-                            </PeriodValue>
-                            <Arrow
-                                type="button"
-                                onClick={() => go(1)}
-                                disabled={index >= periods.length - 1}
-                            >
-                                ›
-                            </Arrow>
-                        </PeriodRow>
-                    </Period>
-                </TopBar>
+          {/* --- Слайдер періоду --- */}
+          <Period>
+            <MutedLabel>Поточний період</MutedLabel>
+            <PeriodRow>
+              <Arrow type="button" onClick={() => go(-1)} disabled={index === 0}>
+                ‹
+              </Arrow>
+              <PeriodValue>
+                {MONTHS[period.month]}
+                <br />
+                {period.year}
+              </PeriodValue>
+              <Arrow
+                type="button"
+                onClick={() => go(1)}
+                disabled={index >= periods.length - 1}
+              >
+                ›
+              </Arrow>
+            </PeriodRow>
+          </Period>
+        </TopBar>
 
-                {/* --- Підсумок місяця --- */}
-                <SummaryCard>
-                    <SummaryItem>
-                        <SummaryLabel>Витрати:</SummaryLabel>
-                        <SummaryValue $color="#e53e3e">- {fmt(totals.expense)} грн.</SummaryValue>
-                    </SummaryItem>
-                    <Divider />
-                    <SummaryItem>
-                        <SummaryLabel>Доходи:</SummaryLabel>
-                        <SummaryValue $color="#38a169">+ {fmt(totals.income)} грн.</SummaryValue>
-                    </SummaryItem>
-                    <Divider />
-                    <SummaryItem>
-                        <SummaryLabel>Баланс:</SummaryLabel>
-                        <SummaryValue>{fmt(balance)} грн.</SummaryValue>
-                    </SummaryItem>
-                </SummaryCard>
+        {/* --- Підсумок місяця --- */}
+        <SummaryCard>
+          <SummaryItem>
+            <SummaryLabel>Витрати:</SummaryLabel>
+            <SummaryValue $color="#e53e3e">- {fmt(totals.expense)} грн.</SummaryValue>
+          </SummaryItem>
+          <Divider />
+          <SummaryItem>
+            <SummaryLabel>Доходи:</SummaryLabel>
+            <SummaryValue $color="#38a169">+ {fmt(totals.income)} грн.</SummaryValue>
+          </SummaryItem>
+          <Divider />
+          <SummaryItem>
+            <SummaryLabel>Баланс:</SummaryLabel>
+            <SummaryValue>{fmt(balance)} грн.</SummaryValue>
+          </SummaryItem>
+        </SummaryCard>
 
-                {/* --- Категорії --- */}
-                <Card>
-                    <SwitchRow>
-                        <Arrow type="button" onClick={toggleMode}>‹</Arrow>
-                        <SwitchTitle>{mode === "expense" ? "ВИТРАТИ" : "ДОХОДИ"}</SwitchTitle>
-                        <Arrow type="button" onClick={toggleMode}>›</Arrow>
-                    </SwitchRow>
+        {/* --- Категорії --- */}
+        <Card>
+          <SwitchRow>
+            <Arrow type="button" onClick={toggleMode}>‹</Arrow>
+            <SwitchTitle>{mode === "expense" ? "ВИТРАТИ" : "ДОХОДИ"}</SwitchTitle>
+            <Arrow type="button" onClick={toggleMode}>›</Arrow>
+          </SwitchRow>
 
-                    {categories.length === 0 ? (
-                        <EmptyText>
-                            За {MONTHS[period.month].toLowerCase()} {period.year} немає{" "}
-                            {mode === "expense" ? "витрат" : "доходів"}
-                        </EmptyText>
-                    ) : (
-                        <CategoryGrid>
-                            {categories.map((c) => {
-                                const active = category === c.label;
-                                return (
-                                    <CategoryBtn
-                                        key={c.label}
-                                        type="button"
-                                        $active={active}
-                                        onClick={() => setCategory(active ? null : c.label)}
-                                    >
-                                        <CatAmount>{fmt(c.amount)}</CatAmount>
-                                        <CatIcon>{c.icon}</CatIcon>
-                                        <CatLabel $active={active}>{c.label}</CatLabel>
-                                    </CategoryBtn>
-                                );
-                            })}
-                        </CategoryGrid>
-                    )}
-                </Card>
+          {categories.length === 0 ? (
+            <EmptyText>
+              За {MONTHS[period.month].toLowerCase()} {period.year} немає{" "}
+              {mode === "expense" ? "витрат" : "доходів"}
+            </EmptyText>
+          ) : (
+            <CategoryGrid>
+              {categories.map((c) => {
+                const active = category === c.label;
+                return (
+                  <CategoryBtn
+                    key={c.label}
+                    type="button"
+                    $active={active}
+                    onClick={() => setCategory(active ? null : c.label)}
+                  >
+                    <CatAmount>{fmt(c.amount)}</CatAmount>
+                    <CatIcon>{c.icon}</CatIcon>
+                    <CatLabel $active={active}>{c.label}</CatLabel>
+                  </CategoryBtn>
+                );
+              })}
+            </CategoryGrid>
+          )}
+        </Card>
 
-                {/* --- Діаграма по описах транзакцій --- */}
-                <Card>
-                    {category && (
-                        <FilterRow>
-                            <FilterName>{category}</FilterName>
-                            <ResetBtn type="button" onClick={() => setCategory(null)}>
-                                показати всі
-                            </ResetBtn>
-                        </FilterRow>
-                    )}
-                    <BarChart items={details} />
-                </Card>
-            </Container>
-        </Page>
-    );
+        {/* --- Діаграма по описах транзакцій --- */}
+        <Card>
+          {category && (
+            <FilterRow>
+              <FilterName>{category}</FilterName>
+              <ResetBtn type="button" onClick={() => setCategory(null)}>
+                показати всі
+              </ResetBtn>
+            </FilterRow>
+          )}
+          <BarChart items={details} />
+        </Card>
+      </Container>
+    </Page>
+  );
 }
 
 /* ---------------- styles ---------------- */
