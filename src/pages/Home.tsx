@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { Navigate, useNavigate } from 'react-router-dom';
 import { onAuthStateChanged, signOut, User } from 'firebase/auth';
 import { auth } from '../firebase.ts';
 import { Header } from '../components/Header/Header.tsx';
@@ -26,14 +27,12 @@ const Home: React.FC = () => {
     return () => unsubscribe();
   }, []);
 
-  useEffect(() => {
-    const unsubscribe = subscribeToTransactions(setTransactions);
-    return () => unsubscribe();
-  }, []);
+  const navigate = useNavigate();
 
   const handleLogout = async () => {
     try {
       await signOut(auth);
+      navigate('/auth');
     } catch (error) {
       console.error("Error logging out:", error);
     }
@@ -55,7 +54,11 @@ const Home: React.FC = () => {
     );
   }
 
-  const userName = user?.displayName || user?.email || undefined;
+  if (!user) {
+    return <Navigate to="/auth" replace />;
+  }
+
+  const userName = user.displayName || user.email || undefined;
 
   return (
     <div>
