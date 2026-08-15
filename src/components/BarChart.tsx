@@ -1,35 +1,36 @@
+/** НОВИЙ ФАЙЛ → src/components/BarChart.tsx */
 import styled from "styled-components";
 import type { StatItem } from "../utils/stats";
 import { fmtShort } from "../constants/statistics";
 
 export function BarChart({ items }: { items: StatItem[] }) {
-    if (items.length === 0) {
-        return <Empty>Немає даних за обраний період</Empty>;
-    }
+  if (items.length === 0) {
+    return <Empty>Немає даних за обраний період</Empty>;
+  }
 
-    const max = Math.max(...items.map((i) => i.amount), 1);
+  const max = Math.max(...items.map((i) => i.amount), 1);
 
-    return (
-        <Chart>
-            <Grid aria-hidden>
-                {Array.from({ length: 8 }).map((_, i) => (
-                    <GridLine key={i} />
-                ))}
-            </Grid>
+  return (
+    <Chart>
+      <Grid aria-hidden>
+        {Array.from({ length: 8 }).map((_, i) => (
+          <GridLine key={i} />
+        ))}
+      </Grid>
 
-            <Bars>
-                {items.map((item, i) => (
-                    <Col key={item.label} title={`${item.label}: ${fmtShort(item.amount)} грн`}>
-                        <Value>{fmtShort(item.amount)} грн</Value>
-                        <Track>
-                            <Bar $accent={i % 2 === 0} style={{ height: `${(item.amount / max) * 100}%` }} />
-                        </Track>
-                        <Label>{item.label}</Label>
-                    </Col>
-                ))}
-            </Bars>
-        </Chart>
-    );
+      <Bars>
+        {items.map((item, i) => (
+          <Col key={item.label} title={`${item.label}: ${fmtShort(item.amount)} грн`}>
+            <Value>{fmtShort(item.amount)} грн</Value>
+            <Track>
+              <Bar $accent={i % 2 === 0} style={{ height: `${(item.amount / max) * 100}%` }} />
+            </Track>
+            <Label>{item.label}</Label>
+          </Col>
+        ))}
+      </Bars>
+    </Chart>
+  );
 }
 
 const Empty = styled.div`
