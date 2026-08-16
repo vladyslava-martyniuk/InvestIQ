@@ -13,10 +13,15 @@ import {
   periodKey,
 } from "../utils/stats";
 import { useNavigate } from "react-router-dom";
+import { deleteTransactionFromDb } from "../services/transactionsApi";
+import { getAuth } from "firebase/auth";
 import {
-  subscribeToTransactions,
-  deleteTransactionFromDb,
-} from "../services/transactionsApi";
+  collection,
+  onSnapshot,
+  orderBy,
+  query,
+} from "firebase/firestore";
+import { db } from "../firebase/config";
 
 export default function StatisticsPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -27,38 +32,59 @@ export default function StatisticsPage() {
   const [index, setIndex] = useState(0);
   const navigate = useNavigate();
 
-  // Підписка на транзакції з Firebase
+  // Підписка на транзакції напряму через Firebase
   useEffect(() => {
-    const unsubscribe = subscribeToTransactions((items) => {
+    const q = query(
+      collection(db, "transactions"),
+      orderBy("createdAt", "desc")
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const items: Transaction[] = snapshot.docs.map((doc) => {
+        const data = doc.data();
+        const amount = Number(data.amount) || 0;
+        return {
+          id: doc.id,
+          date: data.date ?? "",
+          description: data.description ?? "",
+          category: data.category ?? "",
+          type: data.type ?? "expense",
+          amount: data.type === "income" ? amount : -amount,
+        };
+      });
       setTransactions(items);
     });
+
     return () => unsubscribe();
   }, []);
 
   const periods = useMemo(() => buildPeriods(transactions), [transactions]);
 
   // Автоматично переходимо до першого місяця з транзакціями
-  useMemo(() => {
+  useEffect(() => {
+    if (transactions.length === 0) return;
     const first = getFirstPeriod(transactions);
     const i = periods.findIndex((p) => periodKey(p) === periodKey(first));
     if (i > -1) setIndex(i);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [transactions.length]);
+  }, [transactions.length, periods]);
 
   const period = periods[Math.min(index, periods.length - 1)];
 
   const totals = useMemo(
-    () => getTotals(transactions, period),
+    () => (period ? getTotals(transactions, period) : { expense: 0, income: 0 }),
     [transactions, period]
   );
+
   const categories = useMemo(
-    () => getCategoryStats(transactions, period, mode),
+    () => (period ? getCategoryStats(transactions, period, mode) : []),
     [transactions, period, mode]
   );
+
   const details = useMemo(
-    () => getDetailStats(transactions, period, mode, category),
+    () => (period ? getDetailStats(transactions, period, mode, category) : []),
     [transactions, period, mode, category]
   );
+
   const balance = useMemo(
     () => getBalance(transactions, startBalance),
     [transactions, startBalance]
@@ -74,19 +100,40 @@ export default function StatisticsPage() {
 
   const handleDelete = async (id: string) => {
     try {
-      await deleteTransactionFromDb(id);
-    } catch {
+      const auth = getAuth();
+      const userId = auth.currentUser?.uid;
+      if (!userId) {
+        alert("Користувач не авторизований");
+        return;
+      }
+      await deleteTransactionFromDb(userId, id);
+    } catch (error) {
+      console.error("Помилка видалення:", error);
       alert("Не вдалося видалити транзакцію");
     }
   };
 
-  // Щоб уникнути помилки якщо periods порожній
-  if (!period) return <LoadingBox>Завантаження...</LoadingBox>;
+  // Транзакції за поточний місяць і режим
+  const filteredTx = period
+    ? transactions.filter((t) => {
+      const d = new Date(t.date);
+      return (
+        d.getFullYear() === period.year &&
+        d.getMonth() === period.month &&
+        t.type === mode
+      );
+    })
+    : [];
+
+  if (!period) {
+    return <LoadingBox>Завантаження...</LoadingBox>;
+  }
 
   return (
     <Page>
       <Blob />
       <Container>
+
         {/* Верхня панель */}
         <TopBar>
           <BackLink type="button" onClick={() => navigate("/home")}>
@@ -96,9 +143,7 @@ export default function StatisticsPage() {
           <BalanceForm
             onSubmit={(e) => {
               e.preventDefault();
-              const v = Number(
-                draft.replace(/\s/g, "").replace(",", ".")
-              );
+              const v = Number(draft.replace(/\s/g, "").replace(",", "."));
               if (!Number.isNaN(v)) setStartBalance(v);
             }}
           >
@@ -118,11 +163,7 @@ export default function StatisticsPage() {
           <Period>
             <MutedLabel>Поточний період</MutedLabel>
             <PeriodRow>
-              <Arrow
-                type="button"
-                onClick={() => go(-1)}
-                disabled={index === 0}
-              >
+              <Arrow type="button" onClick={() => go(-1)} disabled={index === 0}>
                 ‹
               </Arrow>
               <PeriodValue>
@@ -166,15 +207,11 @@ export default function StatisticsPage() {
         {/* Категорії */}
         <Card>
           <SwitchRow>
-            <Arrow type="button" onClick={toggleMode}>
-              ‹
-            </Arrow>
+            <Arrow type="button" onClick={toggleMode}>‹</Arrow>
             <SwitchTitle>
               {mode === "expense" ? "ВИТРАТИ" : "ДОХОДИ"}
             </SwitchTitle>
-            <Arrow type="button" onClick={toggleMode}>
-              ›
-            </Arrow>
+            <Arrow type="button" onClick={toggleMode}>›</Arrow>
           </SwitchRow>
 
           {categories.length === 0 ? (
@@ -216,21 +253,13 @@ export default function StatisticsPage() {
           <BarChart items={details} />
         </Card>
 
-        {/* Таблиця витрат за місяць */}
+        {/* Таблиця транзакцій за місяць */}
         <Card>
           <SectionTitle>
             Транзакції за {MONTHS[period.month].toLowerCase()} {period.year}
           </SectionTitle>
-          {transactions
-            .filter((t) => {
-              const d = new Date(t.date);
-              return (
-                d.getFullYear() === period.year &&
-                d.getMonth() === period.month &&
-                t.type === mode
-              );
-            })
-            .length === 0 ? (
+
+          {filteredTx.length === 0 ? (
             <EmptyText>Транзакцій немає</EmptyText>
           ) : (
             <SimpleTable>
@@ -244,43 +273,35 @@ export default function StatisticsPage() {
                 </tr>
               </thead>
               <tbody>
-                {transactions
-                  .filter((t) => {
-                    const d = new Date(t.date);
-                    return (
-                      d.getFullYear() === period.year &&
-                      d.getMonth() === period.month &&
-                      t.type === mode
-                    );
-                  })
-                  .map((tx) => (
-                    <STr key={tx.id}>
-                      <STd>{tx.date}</STd>
-                      <STd>{tx.description}</STd>
-                      <STd>
-                        <Badge>{tx.category}</Badge>
-                      </STd>
-                      <STd>
-                        <AmountSpan $positive={tx.amount >= 0}>
-                          {tx.amount > 0 ? "+" : ""}
-                          {fmt(tx.amount)} ₴
-                        </AmountSpan>
-                      </STd>
-                      <STd>
-                        <DeleteBtn
-                          type="button"
-                          onClick={() => handleDelete(tx.id)}
-                          title="Видалити"
-                        >
-                          🗑
-                        </DeleteBtn>
-                      </STd>
-                    </STr>
-                  ))}
+                {filteredTx.map((tx) => (
+                  <STr key={tx.id}>
+                    <STd>{tx.date}</STd>
+                    <STd>{tx.description}</STd>
+                    <STd>
+                      <Badge>{tx.category}</Badge>
+                    </STd>
+                    <STd>
+                      <AmountSpan $positive={tx.amount >= 0}>
+                        {tx.amount > 0 ? "+" : ""}
+                        {fmt(Math.abs(tx.amount))} ₴
+                      </AmountSpan>
+                    </STd>
+                    <STd>
+                      <DeleteBtn
+                        type="button"
+                        onClick={() => handleDelete(tx.id)}
+                        title="Видалити"
+                      >
+                        🗑
+                      </DeleteBtn>
+                    </STd>
+                  </STr>
+                ))}
               </tbody>
             </SimpleTable>
           )}
         </Card>
+
       </Container>
     </Page>
   );
@@ -393,7 +414,6 @@ const ConfirmBtn = styled.button`
   font-size: 12px;
   color: rgba(82, 85, 95, 0.7);
   cursor: pointer;
-  transition: all 0.2s;
 
   &:hover {
     background: #ff751d;
@@ -505,6 +525,7 @@ const CategoryGrid = styled.div`
   @media (max-width: 900px) {
     grid-template-columns: repeat(4, 1fr);
   }
+
   @media (max-width: 560px) {
     grid-template-columns: repeat(3, 1fr);
   }
@@ -522,7 +543,6 @@ const CategoryBtn = styled.button<{ $active: boolean }>`
   cursor: pointer;
   text-align: center;
   background: ${({ $active }) => ($active ? "#fff3ea" : "transparent")};
-  transition: background 0.2s;
 
   &:hover {
     background: ${({ $active }) => ($active ? "#fff3ea" : "#fafbfd")};
@@ -642,7 +662,6 @@ const DeleteBtn = styled.button`
   cursor: pointer;
   font-size: 16px;
   opacity: 0.5;
-  transition: opacity 0.2s;
 
   &:hover {
     opacity: 1;
