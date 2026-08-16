@@ -1,3 +1,19 @@
+import React, { useEffect, useState } from 'react';
+import { Navigate, useNavigate } from 'react-router-dom';
+import { onAuthStateChanged, signOut, User } from 'firebase/auth';
+import { auth } from '../firebase.ts';
+import { Header } from '../components/Header/Header.tsx';
+import { Balance } from '../components/Balance/Balance.tsx';
+import { TransactionForm } from '../components/TransactionForm/TransactionForm.tsx';
+
+import { Compilation } from '../components/Compilation/Compilation.tsx';
+import { TransactionsTable } from '../components/TransactionsTable.tsx';
+import type { Transaction } from '../types/types.ts';
+import {
+  subscribeToTransactions,
+  deleteTransactionFromDb,
+} from '../services/transactionsApi.ts';
+import styled from "styled-components";
 import React, { useEffect, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { onAuthStateChanged, User } from "firebase/auth";
@@ -12,6 +28,7 @@ import styled from "styled-components";
 import { IoBarChart } from "react-icons/io5";
 
 const Home: React.FC = () => {
+  const [startBalance, setStartBalance] = useState<number | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -25,10 +42,27 @@ const Home: React.FC = () => {
     return () => unsubscribe();
   }, []);
 
+  const navigate = useNavigate();
   useEffect(() => {
     const unsubscribe = subscribeToTransactions(setTransactions);
     return () => unsubscribe();
   }, []);
+
+useEffect(() => {
+    if (!user) return;
+
+    const saved = localStorage.getItem(`investiq-balance-${user.uid}`);
+    setStartBalance(saved === null ? null : Number(saved));
+  }, [user]);
+
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      navigate('/auth');
+    } catch (error) {
+      console.error("Error logging out:", error);
+    }
+  };
 
   const handleDelete = async (id: string) => {
     try {
@@ -36,6 +70,13 @@ const Home: React.FC = () => {
     } catch {
       alert("Не вдалося видалити транзакцію");
     }
+  };
+
+  const handleConfirmBalance = (value: number) => {
+    if (!user) return;
+
+    localStorage.setItem(`investiq-balance-${user.uid}`, String(value));
+    setStartBalance(value);
   };
 
   if (loading) {
@@ -46,6 +87,27 @@ const Home: React.FC = () => {
     return <Navigate to="/auth" replace />;
   }
 
+  const userName = user.displayName || user.email || undefined;
+  const transactionsTotal = transactions.reduce((sum, tx) => sum + tx.amount, 0);
+  const currentBalance = (startBalance ?? 0) + transactionsTotal;
+
+  return (
+    <div>
+      <Header userName={userName} onLogout={handleLogout} />
+      <BalanceWrapper>
+        <Balance
+          value={currentBalance}
+          isSet={startBalance !== null}
+          onConfirm={handleConfirmBalance}
+        />
+        <BackLink type="button" onClick={() => navigate('/home')}>
+          <span aria-hidden>←</span> Перейти на сторінку  доходів
+        </BackLink>
+      </BalanceWrapper>
+      <TransactionForm />
+      <TransactionsTable items={transactions} onDelete={handleDelete} />
+            <Compilation transactions={transactions} />
+    </div>
   const expenses = transactions.filter((t) => t.type === "expense");
 
   return (
@@ -76,6 +138,7 @@ const Home: React.FC = () => {
 
 export default Home;
 
+const BackLink = styled.button`
 const LoadingBox = styled.div`
   display: flex;
   justify-content: center;
@@ -124,6 +187,7 @@ const ReportsButton = styled.button`
     }
   }
 `;
+const BalanceWrapper = styled.div`
 
 const MainCard = styled.div`
   background-color: #ffffff;

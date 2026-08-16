@@ -31,6 +31,12 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
   const [description, setDescription] = useState('');
   const [category, setCategory] = useState('');
   const [amount, setAmount] = useState('');
+  const [txType, setTxType] = useState<'expense' | 'income'>(type);
+  
+  const handleTypeChange = (next: 'expense' | 'income') => {
+    setTxType(next);
+    setCategory('');
+  };
 
   const handleClear = () => {
     setDescription('');
@@ -49,7 +55,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
       return;
     }
 
-    if (!category) {
+    if (txType === 'expense' && !category) {
       alert('Оберіть категорію');
       return;
     }
@@ -62,7 +68,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
     const transactionData = {
       date,
       description: description.trim(),
-      category,
+      category: txType === 'income' ? 'Зарплата' : category,
       amount: numericAmount,
       type,
       
@@ -128,11 +134,12 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
       <InputsGroup>
         <InputDescription
           type="text"
-          placeholder="Опис товару"
+          placeholder={txType === 'income' ? 'Зарплата' : 'Опис товару'}
           value={description}
           onChange={(e) => setDescription(e.target.value)}
         />
 
+        {txType === 'expense' && (
         <SelectCategoryWrapper>
           <SelectCategory
             value={category}
@@ -166,6 +173,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
             />
           </ArrowIcon>
         </SelectCategoryWrapper>
+        )}
 
         <AmountWrapper>
           <InputAmount
@@ -204,18 +212,22 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
         </AmountWrapper>
         <SelectCategoryWrapper>
           <SelectCategory
-            value={category}
-            onChange={(e) => setCategory(e.target.value)}
+            value={txType}
+            onChange={(e) => handleTypeChange(e.target.value as 'expense' | 'income')}
           >
-            <option value="" disabled hidden>
-              Категорія  дії
-            </option>
-
-            <option value="Income">Дохід</option>
-            <option value="Expense">Витрати</option>
-            
+            <option value="expense">Витрата</option>
+            <option value="income">Дохід</option>
           </SelectCategory>
-          </SelectCategoryWrapper>
+
+          <ArrowIcon viewBox="0 0 12 7" fill="none">
+            <path
+              d="M1 1L6 5L11 1"
+              stroke="#52555F"
+              strokeWidth="2"
+              strokeLinecap="round"
+            />
+          </ArrowIcon>
+        </SelectCategoryWrapper>
       </InputsGroup>
      
       <ButtonGroup>

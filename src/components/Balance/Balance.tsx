@@ -2,34 +2,27 @@ import React, { useState } from 'react';
 import styled from 'styled-components';
 
 interface BalanceProps {
-  initialBalance?: number;
-  onConfirm?: (balance: number) => void;
+  value: number;                      // поточний баланс: стартовий + усі транзакції
+  isSet: boolean;                     // чи користувач уже вносив стартовий баланс
+  onConfirm: (balance: number) => void;
 }
 
-export const Balance: React.FC<BalanceProps> = ({ initialBalance = 0, onConfirm }) => {
-  const [balance, setBalance] = useState<string>(
-    initialBalance ? `${initialBalance.toFixed(2)} UAH` : '00.00 UAH'
-  );
-
-  // Стан для відображення тултіпа: якщо початковий баланс є, підказка вже не потрібна
-  const [showTooltip, setShowTooltip] = useState<boolean>(!initialBalance);
-
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setBalance(e.target.value);
-  };
+export const Balance: React.FC<BalanceProps> = ({ value, isSet, onConfirm }) => {
+  const [draft, setDraft] = useState<string>('');
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const numericValue = parseFloat(balance.replace(/[^0-9.]/g, ''));
+
+    const numericValue = parseFloat(draft.replace(',', '.').replace(/[^0-9.]/g, ''));
 
     if (!isNaN(numericValue)) {
-      if (onConfirm) {
-        onConfirm(numericValue);
-      }
-      // Ховаємо тултіп після підтвердження суми
-      setShowTooltip(false);
+      onConfirm(numericValue);
     }
   };
+
+  // Поки стартовий баланс не внесений — поле редаговане.
+  // Після підтвердження показуємо порахований баланс і блокуємо введення.
+  const display = isSet ? `${value.toFixed(2)} UAH` : draft;
 
   return (
     <BalanceWrapper>
@@ -40,15 +33,15 @@ export const Balance: React.FC<BalanceProps> = ({ initialBalance = 0, onConfirm 
           <Input
             id="balance-input"
             type="text"
-            value={balance}
-            onChange={handleInputChange}
+            value={display}
+            onChange={(e) => setDraft(e.target.value)}
             placeholder="00.00 UAH"
+            readOnly={isSet}
           />
           <SubmitButton type="submit">ПІДТВЕРДИТИ</SubmitButton>
         </InputGroup>
 
-        {/* Відображаємо тултіп лише якщо showTooltip === true */}
-        {showTooltip && (
+        {!isSet && (
           <TooltipContainer>
             <TooltipArrow />
             <TooltipTitle>
