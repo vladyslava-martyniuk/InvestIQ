@@ -70,9 +70,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
       description: description.trim(),
       category: txType === 'income' ? 'Зарплата' : category,
       amount: numericAmount,
-      type,
-      
-      
+      type: txType,
     };
  
     try {

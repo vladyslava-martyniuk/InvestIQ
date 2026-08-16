@@ -9,7 +9,6 @@ import {
   query,
 } from "firebase/firestore";
 import { db } from "../firebase/config";
-import { auth  } from "../firebase";
 import type { Transaction } from "../types/types";
 
 export interface TransactionData {
@@ -21,14 +20,13 @@ export interface TransactionData {
 }
 
 export const subscribeToTransactions = (
+  userId: string,
   onChange: (items: Transaction[]) => void
 ) => {
-  const userId = auth.currentUser?.uid;
-  if (!userId) {
-          throw new Error('Поточний користувач не знайдено');
-        }
-        
-  const q = query(collection(db, 'users', userId, 'transactions'), orderBy("createdAt", "desc"));
+  const q = query(
+    collection(db, 'users', userId, 'transactions'),
+    orderBy("createdAt", "desc")
+  );
 
   return onSnapshot(
     q,
@@ -55,10 +53,10 @@ export const subscribeToTransactions = (
   );
 };
 
-export const addTransactionToDb = async (transaction: TransactionData) => {
+export const addTransactionToDb = async (userId: string, transaction: TransactionData) => {
   try {
-    // Отримуємо посилання на колекцію "transactions"
-    const docRef = await addDoc(collection(db, "transactions"), {
+    // Транзакції лежать у підколекції конкретного користувача
+    const docRef = await addDoc(collection(db, "users", userId, "transactions"), {
       ...transaction,
       createdAt: serverTimestamp(),
     });
@@ -71,9 +69,9 @@ export const addTransactionToDb = async (transaction: TransactionData) => {
   }
 };
 
-export const deleteTransactionFromDb = async (id: string) => {
+export const deleteTransactionFromDb = async (userId: string, id: string) => {
   try {
-    await deleteDoc(doc(db, "transactions", id));
+    await deleteDoc(doc(db, "users", userId, "transactions", id));
   } catch (error) {
     console.error("Помилка при видаленні транзакції:", error);
     throw error;
