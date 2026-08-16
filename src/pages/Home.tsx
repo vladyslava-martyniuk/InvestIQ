@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
-import { onAuthStateChanged, signOut, User } from "firebase/auth";
+import { onAuthStateChanged, User } from "firebase/auth";
 import { auth } from "../firebase.ts";
 import { Balance } from "../components/Balance/Balance.tsx";
 import { TransactionForm } from "../components/TransactionForm/TransactionForm.tsx";
@@ -15,7 +15,6 @@ const Home: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [activeTab, setActiveTab] = useState<"expenses" | "income">("expenses");
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -30,15 +29,6 @@ const Home: React.FC = () => {
     const unsubscribe = subscribeToTransactions(setTransactions);
     return () => unsubscribe();
   }, []);
-
-  const handleLogout = async () => {
-    try {
-      await signOut(auth);
-      navigate("/auth");
-    } catch (error) {
-      console.error("Error logging out:", error);
-    }
-  };
 
   const handleDelete = async (id: string) => {
     try {
@@ -56,31 +46,31 @@ const Home: React.FC = () => {
     return <Navigate to="/auth" replace />;
   }
 
-  const filteredTransactions = transactions.filter((t) => (activeTab === "expenses" ? t.type === "expense" : t.type === "income"));
+  const expenses = transactions.filter((t) => t.type === "expense");
 
   return (
-      <ContentContainer>
-        <TopBar>
-          <BalanceBox>
-            <Balance />
-          </BalanceBox>
-          <ReportsButton type="button" onClick={() => navigate("/spends")}>
-            <span>Перейти до розрахунків</span>
-            <IoBarChart size={18} color="#52555f" />
-          </ReportsButton>
-        </TopBar>
+    <ContentContainer>
+      <TopBar>
+        <BalanceBox>
+          <Balance />
+        </BalanceBox>
+        <ReportsButton type="button" onClick={() => navigate("/spends")}>
+          <span>Перейти до розрахунків</span>
+          <IoBarChart size={18} color="#52555f" />
+        </ReportsButton>
+      </TopBar>
 
-        <MainCard>
-          <TransactionForm />
+      <MainCard>
+        <TransactionForm />
 
-          <TableAndSummarySection>
-            <TableWrapper>
-              <TransactionsTable items={filteredTransactions} onDelete={handleDelete} />
-            </TableWrapper>
-            <Compilation transactions={transactions} type={activeTab === "expenses" ? "expense" : "income"} />
-          </TableAndSummarySection>
-        </MainCard>
-      </ContentContainer>
+        <TableAndSummarySection>
+          <TableWrapper>
+            <TransactionsTable items={expenses} onDelete={handleDelete} />
+          </TableWrapper>
+          <Compilation transactions={transactions} type="expense" />
+        </TableAndSummarySection>
+      </MainCard>
+    </ContentContainer>
   );
 };
 
@@ -115,6 +105,7 @@ const BalanceBox = styled.div`
 const ReportsButton = styled.button`
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 10px;
   background: none;
   border: none;
