@@ -6,6 +6,8 @@ import {
   serverTimestamp,
 } from 'firebase/firestore';
 import { db } from '../../firebase/config';
+import { auth  } from "../../firebase";
+import { useAppSelector } from '../../redux/store';
 
 interface TransactionData {
   date: string;
@@ -24,7 +26,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
   type = 'expense',
 }) => {
   const today = new Date().toISOString().split('T')[0];
-
+  const userId = auth.currentUser?.uid;
   const [date, setDate] = useState(today);
   const [description, setDescription] = useState('');
   const [category, setCategory] = useState('');
@@ -68,15 +70,21 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
       description: description.trim(),
       category: txType === 'income' ? 'Зарплата' : category,
       amount: numericAmount,
-      type: txType,
+      type,
+      
+      
     };
-
+ 
     try {
+      if (!userId) {
+        throw new Error('Поточний користувач не знайдено');
+      }
       const docRef = await addDoc(
-        collection(db, 'transactions'),
+        collection(db, 'users', userId, 'transactions'),
         {
           ...transactionData,
           createdAt: serverTimestamp(),
+          
         }
       );
 
