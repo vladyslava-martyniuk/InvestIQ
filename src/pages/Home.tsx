@@ -1,23 +1,21 @@
-import React, { useEffect, useState } from 'react';
-import { Navigate, useNavigate } from 'react-router-dom';
-import { onAuthStateChanged, signOut, User } from 'firebase/auth';
-import { auth } from '../firebase.ts';
-import { Header } from '../components/Header/Header.tsx';
-import { Balance } from '../components/Balance/Balance.tsx';
-import { TransactionForm } from '../components/TransactionForm/TransactionForm.tsx';
+import React, { useEffect, useState } from "react";
+import { Navigate, useNavigate } from "react-router-dom";
+import { onAuthStateChanged, User } from "firebase/auth";
+import { auth } from "../firebase.ts";
+import { Balance } from "../components/Balance/Balance.tsx";
+import { TransactionForm } from "../components/TransactionForm/TransactionForm.tsx";
+import { Compilation } from "../components/Compilation/Compilation.tsx";
+import { TransactionsTable } from "../components/TransactionsTable.tsx";
+import type { Transaction } from "../types/types.ts";
+import { subscribeToTransactions, deleteTransactionFromDb } from "../services/transactionsApi.ts";
+import styled from "styled-components";
+import { IoBarChart } from "react-icons/io5";
 
-import { Compilation } from '../components/Compilation/Compilation.tsx';
-import { TransactionsTable } from '../components/TransactionsTable.tsx';
-import type { Transaction } from '../types/types.ts';
-import {
-  subscribeToTransactions,
-  deleteTransactionFromDb,
-} from '../services/transactionsApi.ts';
-import  styled from "styled-components";
 const Home: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const navigate = useNavigate();
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
@@ -27,86 +25,125 @@ const Home: React.FC = () => {
     return () => unsubscribe();
   }, []);
 
-  const navigate = useNavigate();
-    useEffect(() => {
+  useEffect(() => {
     const unsubscribe = subscribeToTransactions(setTransactions);
     return () => unsubscribe();
   }, []);
-
-  const handleLogout = async () => {
-    try {
-      await signOut(auth);
-      navigate('/auth');
-    } catch (error) {
-      console.error("Error logging out:", error);
-    }
-  };
 
   const handleDelete = async (id: string) => {
     try {
       await deleteTransactionFromDb(id);
     } catch {
-      alert('Не вдалося видалити транзакцію');
+      alert("Не вдалося видалити транзакцію");
     }
   };
 
   if (loading) {
-    return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', fontFamily: 'sans-serif' }}>
-        Завантаження...
-      </div>
-    );
+    return <LoadingBox>Завантаження...</LoadingBox>;
   }
 
   if (!user) {
     return <Navigate to="/auth" replace />;
   }
 
-  const userName = user.displayName || user.email || undefined;
+  const expenses = transactions.filter((t) => t.type === "expense");
 
   return (
-    <div>
-      <Header userName={userName} onLogout={handleLogout} />
-      <BalanceWrapper>
-      <Balance />  
-      <BackLink type="button" onClick={() => navigate('/home')}>
-            <span aria-hidden>←</span> Перейти на сторінку  доходів
-          </BackLink> 
-      </BalanceWrapper>
-      <TransactionForm /> 
-      <TransactionsTable items={transactions} onDelete={handleDelete} />
-      <Compilation />
-    </div>
+    <ContentContainer>
+      <TopBar>
+        <BalanceBox>
+          <Balance />
+        </BalanceBox>
+        <ReportsButton type="button" onClick={() => navigate("/spends")}>
+          <span>Перейти до розрахунків</span>
+          <IoBarChart size={18} color="#52555f" />
+        </ReportsButton>
+      </TopBar>
+
+      <MainCard>
+        <TransactionForm />
+
+        <TableAndSummarySection>
+          <TableWrapper>
+            <TransactionsTable items={expenses} onDelete={handleDelete} />
+          </TableWrapper>
+          <Compilation transactions={transactions} type="expense" />
+        </TableAndSummarySection>
+      </MainCard>
+    </ContentContainer>
   );
 };
 
 export default Home;
 
-const BackLink  = styled.button`
+const LoadingBox = styled.div`
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+`;
+
+const ContentContainer = styled.div`
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 40px 20px 0;
+`;
+
+const TopBar = styled.div`
+  display: flex;
+  margin-bottom: 50px;
+  @media (max-width: 768px) {
+    flex-direction: column-reverse;
+    gap: 20px;
+  }
+`;
+
+const BalanceBox = styled.div`
+  margin: 0 auto;
+`;
+
+const ReportsButton = styled.button`
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 10px;
   background: none;
   border: none;
   cursor: pointer;
-  font-size: 13px;
-  color: #52555f;
-
-  span {
-    font-size: 18px;
-    color: #ff751d;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  color: rgba(82, 85, 95, 0.7);
+  transition: color 0.2s ease;
+  svg {
+    transition: fill 0.2s ease;
   }
-
   &:hover {
     color: #ff751d;
+    svg {
+      fill: #ff751d;
+    }
   }
 `;
- const BalanceWrapper = styled.div`
+
+const MainCard = styled.div`
+  background-color: #ffffff;
+  border-radius: 30px;
+  padding: 30px 20px 60px;
+  box-shadow: 0px 10px 60px rgba(170, 178, 197, 0.2);
+`;
+
+const TableAndSummarySection = styled.div`
   display: flex;
-  align-items: center;
-  justify-content: center; 
-  gap: 20px;
-  width: 100%;
-  position: relative;
-  font-family: 'Roboto', 'Open Sans', sans-serif;
-  `;
+  gap: 30px;
+  margin-top: 60px;
+  align-items: flex-start;
+
+  @media (max-width: 900px) {
+    flex-direction: column;
+    align-items: center;
+  }
+`;
+
+const TableWrapper = styled.div`
+  flex: 1;
+`;
