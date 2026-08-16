@@ -13,8 +13,9 @@ import {
   subscribeToTransactions,
   deleteTransactionFromDb,
 } from '../services/transactionsApi.ts';
-import  styled from "styled-components";
+import styled from "styled-components";
 const Home: React.FC = () => {
+  const [startBalance, setStartBalance] = useState<number | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -28,10 +29,17 @@ const Home: React.FC = () => {
   }, []);
 
   const navigate = useNavigate();
-    useEffect(() => {
+  useEffect(() => {
     const unsubscribe = subscribeToTransactions(setTransactions);
     return () => unsubscribe();
   }, []);
+
+useEffect(() => {
+    if (!user) return;
+
+    const saved = localStorage.getItem(`investiq-balance-${user.uid}`);
+    setStartBalance(saved === null ? null : Number(saved));
+  }, [user]);
 
   const handleLogout = async () => {
     try {
@@ -50,6 +58,13 @@ const Home: React.FC = () => {
     }
   };
 
+  const handleConfirmBalance = (value: number) => {
+    if (!user) return;
+
+    localStorage.setItem(`investiq-balance-${user.uid}`, String(value));
+    setStartBalance(value);
+  };
+
   if (loading) {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', fontFamily: 'sans-serif' }}>
@@ -63,26 +78,32 @@ const Home: React.FC = () => {
   }
 
   const userName = user.displayName || user.email || undefined;
+  const transactionsTotal = transactions.reduce((sum, tx) => sum + tx.amount, 0);
+  const currentBalance = (startBalance ?? 0) + transactionsTotal;
 
   return (
     <div>
       <Header userName={userName} onLogout={handleLogout} />
       <BalanceWrapper>
-      <Balance />  
-      <BackLink type="button" onClick={() => navigate('/home')}>
-            <span aria-hidden>←</span> Перейти на сторінку  доходів
-          </BackLink> 
+        <Balance
+          value={currentBalance}
+          isSet={startBalance !== null}
+          onConfirm={handleConfirmBalance}
+        />
+        <BackLink type="button" onClick={() => navigate('/home')}>
+          <span aria-hidden>←</span> Перейти на сторінку  доходів
+        </BackLink>
       </BalanceWrapper>
-      <TransactionForm /> 
+      <TransactionForm />
       <TransactionsTable items={transactions} onDelete={handleDelete} />
-      <Compilation />
+            <Compilation transactions={transactions} />
     </div>
   );
 };
 
 export default Home;
 
-const BackLink  = styled.button`
+const BackLink = styled.button`
   display: flex;
   align-items: center;
   gap: 10px;
@@ -101,7 +122,7 @@ const BackLink  = styled.button`
     color: #ff751d;
   }
 `;
- const BalanceWrapper = styled.div`
+const BalanceWrapper = styled.div`
   display: flex;
   align-items: center;
   justify-content: center; 
