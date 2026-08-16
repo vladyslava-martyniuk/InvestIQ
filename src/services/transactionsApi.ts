@@ -9,6 +9,7 @@ import {
   query,
 } from "firebase/firestore";
 import { db } from "../firebase/config";
+import { auth  } from "../firebase";
 import type { Transaction } from "../types/types";
 
 export interface TransactionData {
@@ -22,7 +23,12 @@ export interface TransactionData {
 export const subscribeToTransactions = (
   onChange: (items: Transaction[]) => void
 ) => {
-  const q = query(collection(db, "transactions"), orderBy("createdAt", "desc"));
+  const userId = auth.currentUser?.uid;
+  if (!userId) {
+          throw new Error('Поточний користувач не знайдено');
+        }
+        
+  const q = query(collection(db, 'users', userId, 'transactions'), orderBy("createdAt", "desc"));
 
   return onSnapshot(
     q,
