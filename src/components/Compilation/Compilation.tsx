@@ -1,91 +1,56 @@
 import React from "react";
 import styled from "styled-components";
 import type { Transaction } from "../../types/types";
+import { fmt } from "../../constants/statistics";
 
-interface CompilationProps {
-  transactions: Transaction[];
+interface Props {
+  transactions?: Transaction[];
   type?: "expense" | "income";
 }
 
-const MONTH_NAMES = [
-  "Січень",
-  "Лютий",
-  "Березень",
-  "Квітень",
-  "Травень",
-  "Червень",
-  "Липень",
-  "Серпень",
-  "Вересень",
-  "Жовтень",
-  "Листопад",
-  "Грудень",
-];
+export const Compilation: React.FC<Props> = ({
+  transactions = [],
+  type = "expense",
+}) => {
+  const filtered = transactions.filter((t) => t.type === type);
 
-export const Compilation: React.FC<CompilationProps> = ({ transactions, type = "expense" }) => {
-  const getMonthlySummary = () => {
-    const summaryMap: Record<string, number> = {};
+  const categoryMap: Record<string, number> = {};
+  filtered.forEach((t) => {
+    categoryMap[t.category] =
+      (categoryMap[t.category] ?? 0) + Math.abs(t.amount);
+  });
 
-    transactions.forEach((item) => {
-      if (item.type !== type) return;
+  const categories = Object.entries(categoryMap)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 6);
 
-      let monthIndex = -1;
-
-      if (item.date.includes(".")) {
-        const parts = item.date.split(".");
-        if (parts.length >= 2) {
-          monthIndex = parseInt(parts[1], 10) - 1;
-        }
-      } else if (item.date.includes("-")) {
-        const parts = item.date.split("-");
-        if (parts.length >= 2) {
-          monthIndex = parseInt(parts[1], 10) - 1;
-        }
-      } else {
-        const parsedDate = new Date(item.date);
-        if (!isNaN(parsedDate.getTime())) {
-          monthIndex = parsedDate.getMonth();
-        }
-      }
-
-      if (monthIndex >= 0 && monthIndex < 12) {
-        const monthName = MONTH_NAMES[monthIndex];
-        const positiveAmount = Math.abs(item.amount);
-        summaryMap[monthName] = (summaryMap[monthName] || 0) + positiveAmount;
-      }
-    });
-
-    return Object.entries(summaryMap).map(([month, amount]) => ({
-      month,
-      amount,
-    }));
-  };
-
-  const summaryData = getMonthlySummary();
-
-  const formatAmount = (value: number) => {
-    return value.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, " ");
-  };
+  const total = filtered.reduce((sum, t) => sum + Math.abs(t.amount), 0);
 
   return (
     <CompilationWrapper>
-      <HeaderBox>
+      <HeaderRow>
         <CompilationTitle>Зведення</CompilationTitle>
-      </HeaderBox>
-      <ListContainer>
-        {summaryData.length > 0 ? (
-          summaryData.map((item, index) => (
-            <CompilationItem key={`${item.month}-${index}`}>
-              <MonthText>{item.month}</MonthText>
-              <AmountText>{formatAmount(item.amount)}</AmountText>
+        <TypeBadge $isExpense={type === "expense"}>
+          {type === "expense" ? "Витрати" : "Доходи"}
+        </TypeBadge>
+      </HeaderRow>
+
+      {categories.length === 0 ? (
+        <EmptyText>Немає даних</EmptyText>
+      ) : (
+        <>
+          {categories.map(([label, amount]) => (
+            <CompilationItem key={label}>
+              <CompilationItemText title={label}>{label}</CompilationItemText>
+              <AmountText>{fmt(amount)} ₴</AmountText>
             </CompilationItem>
-          ))
-        ) : (
-          <CompilationItem>
-            <MonthText style={{ margin: "0 auto" }}>Немає даних</MonthText>
-          </CompilationItem>
-        )}
-      </ListContainer>
+          ))}
+          <TotalRow>
+            <CompilationItemText>Разом:</CompilationItemText>
+            <TotalAmount>{fmt(total)} ₴</TotalAmount>
+          </TotalRow>
+        </>
+      )}
     </CompilationWrapper>
   );
 };
@@ -93,65 +58,83 @@ export const Compilation: React.FC<CompilationProps> = ({ transactions, type = "
 const CompilationWrapper = styled.div`
   display: flex;
   flex-direction: column;
-  width: 230px;
-  background: #f5f6fb;
-  border-radius: 20px 20px 20px 0px;
+  min-width: 230px;
+  background: #ffffff;
+  border-radius: 16px 16px 16px 0;
   overflow: hidden;
+  border: 2px solid #f5f6fb;
 `;
 
-const HeaderBox = styled.div`
+const HeaderRow = styled.div`
   display: flex;
   align-items: center;
-  justify-content: center;
-  height: 38px;
+  justify-content: space-between;
+  padding: 14px 22px;
   background: #f5f6fb;
-  border-bottom: 2px solid #ffffff;
 `;
 
-const CompilationTitle = styled.h3`
-  font-family: "Roboto", sans-serif;
+const CompilationTitle = styled.div`
+  font-family: Roboto, sans-serif;
   font-weight: 700;
   font-size: 12px;
-  line-height: 1;
-  letter-spacing: 0.02em;
-  text-align: center;
   text-transform: uppercase;
-  color: #000000;
-  margin: 0;
+  letter-spacing: 0.04em;
 `;
 
-const ListContainer = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  background-color: #ffffff;
+const TypeBadge = styled.span<{ $isExpense: boolean }>`
+  font-size: 10px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 25px;
+  background: ${({ $isExpense }) => ($isExpense ? "#ffe5e5" : "#e5f5ee")};
+  color: ${({ $isExpense }) => ($isExpense ? "#e53e3e" : "#38a169")};
 `;
 
 const CompilationItem = styled.div`
   display: flex;
   align-items: center;
+  padding: 0 22px;
   justify-content: space-between;
-  padding: 0 20px;
-  height: 38px;
   background: #f5f6fb;
+  height: 38px;
+  border-top: 2px solid #ffffff;
+  gap: 8px;
 `;
 
-const MonthText = styled.span`
-  font-family: "Roboto", sans-serif;
+const CompilationItemText = styled.div`
+  font-family: Roboto, sans-serif;
   font-weight: 400;
   font-size: 12px;
-  line-height: 1;
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: #52555f;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 130px;
 `;
 
-const AmountText = styled.span`
-  font-family: "Roboto", sans-serif;
-  font-weight: 400;
+const AmountText = styled.div`
+  font-family: Roboto, sans-serif;
+  font-weight: 700;
   font-size: 12px;
-  line-height: 1;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: #52555f;
+  color: #e53e3e;
+  white-space: nowrap;
+`;
+
+const TotalRow = styled(CompilationItem)`
+  border-top: 2px solid #e5e7eb;
+  background: #eef0f7;
+`;
+
+const TotalAmount = styled(AmountText)`
+  color: #08060d;
+`;
+
+const EmptyText = styled.p`
+  font-size: 12px;
+  color: #9ca3af;
+  text-align: center;
+  padding: 20px;
+  margin: 0;
 `;

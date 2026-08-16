@@ -62,13 +62,16 @@ src/
     TransactionForm/
       TransactionForm.tsx
     AuthForm.tsx
+    BarChart.tsx
     TransactionsTable.tsx
+  constants/
+    statistics.ts
   firebase/
     config.ts
   pages/
     Home.tsx
     LoginPage.tsx
-    spends.tsx
+    StatisticsPage.tsx
   redux/
     user/
       userOperations.ts
@@ -81,6 +84,8 @@ src/
     transactionsApi.ts
   types/
     types.ts
+  utils/
+    stats.ts
   App.css
   App.tsx
   firebase.ts
@@ -326,96 +331,6 @@ const TooltipText = styled.p`
 `;
 </file>
 
-<file path="src/components/Compilation/Compilation.tsx">
-import styled from 'styled-components';
-
-
-
-
-
-const CompilationWrapper = styled.div`
-  display: flex;
-    flex-direction: column;
-    align-items: center;
-    height: 278px;
-    width: 230px;
-    background: #FFFFFF;
-    border-radius: 16px 16px 16px 0px;
-    overflow: hidden;
-    gap: 2px;
-    `
-
-const CompilationTitle = styled.div`
-font-family: Roboto;
-font-weight: 700;
-font-size: 12px;
-leading-trim: NONE;
-line-height: 100%;
-letter-spacing: 2%;
-text-align: center;
-vertical-align: middle;
-text-transform: uppercase;
-margin: auto;
-`
-
-const CompilationItem = styled.div`
-    display: flex;
-    align-items: center;
-    padding: 0px 22px;
-    justify-content: space-between;
-    background: #F5F6FB;
-    width: 186px;
-    height: 38px;
-`
-
-
-const CompilationItemText = styled.div`
-font-family: Roboto;
-font-weight: 400;
-font-size: 12px;
-leading-trim: NONE;
-line-height: 100%;
-letter-spacing: 4%;
-vertical-align: middle;
-text-transform: uppercase;
-`
-
-
-export const Compilation = () => {
-    return (
-        <CompilationWrapper>
-            <CompilationItem>
-            <CompilationTitle>Зведення</CompilationTitle>
-            </CompilationItem>
-            <CompilationItem>
-                <CompilationItemText>lorem1</CompilationItemText>
-                <CompilationItemText>lorem2</CompilationItemText>
-            </CompilationItem>
-            <CompilationItem>
-                <CompilationItemText>lorem1</CompilationItemText>
-                <CompilationItemText>lorem2</CompilationItemText>
-            </CompilationItem>
-            <CompilationItem>
-                <CompilationItemText>lorem1</CompilationItemText>
-                <CompilationItemText>lorem2</CompilationItemText>
-            </CompilationItem>
-            <CompilationItem>
-                <CompilationItemText>lorem1</CompilationItemText>
-                <CompilationItemText>lorem2</CompilationItemText>
-            </CompilationItem>
-            <CompilationItem>
-                <CompilationItemText>lorem1</CompilationItemText>
-                <CompilationItemText>lorem2</CompilationItemText>
-            </CompilationItem>
-            <CompilationItem>
-                <CompilationItemText>lorem1</CompilationItemText>
-                <CompilationItemText>lorem2</CompilationItemText>
-            </CompilationItem>
-        </CompilationWrapper>
-    );
-};
-</file>
-
 <file path="src/components/Header/logo.svg">
 <svg width="39" height="31" viewBox="0 0 39 31" fill="none" xmlns="http://www.w3.org/2000/svg">
 <rect x="6" y="5" width="33" height="26" rx="8" fill="#FB7C2F"/>
@@ -440,10 +355,6 @@ const firebaseConfig = {
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 
 export const db = getFirestore(app);
-</file>
-
-<file path="src/pages/spends.tsx">
-
 </file>
 
 <file path="src/redux/user/userSlice.ts">
@@ -566,6 +477,128 @@ export const PrivateRoute = () => {
     const user = useAppSelector((state) => state.user.user);
     return user ? <Outlet /> : <Navigate to="/" />
 };
+</file>
+
+<file path="src/utils/stats.ts">
+/** НОВИЙ ФАЙЛ → src/utils/stats.ts */
+import type { Transaction } from "../types/types";
+import { CATEGORY_ICONS, DEFAULT_ICON, LAST_YEAR } from "../constants/statistics";
+
+export type Period = { year: number; month: number }; // month: 0-11
+
+export type StatItem = { label: string; icon: string; amount: number };
+
+/** "2019-11-05" -> { year: 2019, month: 10 } (без залежності від таймзони) */
+export const parsePeriod = (isoDate: string): Period => {
+    const [y, m] = isoDate.split("-").map(Number);
+    return { year: y, month: (m || 1) - 1 };
+};
+
+export const periodKey = (p: Period) =>
+    `${p.year}-${String(p.month + 1).padStart(2, "0")}`;
+
+export const samePeriod = (a: Period, b: Period) =>
+    a.year === b.year && a.month === b.month;
+
+/** Найраніша дата серед транзакцій */
+export const getFirstPeriod = (transactions: Transaction[]): Period => {
+    if (transactions.length === 0) {
+        const now = new Date();
+        return { year: now.getFullYear(), month: now.getMonth() };
+    }
+    const earliest = transactions.reduce(
+        (min, t) => (t.date && t.date < min ? t.date : min),
+        transactions[0].date
+    );
+    return parsePeriod(earliest);
+};
+
+/** Слайдер: від місяця першої транзакції до ГРУДНЯ LAST_YEAR включно */
+export const buildPeriods = (
+    transactions: Transaction[],
+    lastYear: number = LAST_YEAR
+): Period[] => {
+    const start = getFirstPeriod(transactions);
+    if (start.year > lastYear) return [start];
+
+    const periods: Period[] = [];
+    for (let y = start.year; y <= lastYear; y++) {
+        const from = y === start.year ? start.month : 0;
+        for (let m = from; m <= 11; m++) periods.push({ year: y, month: m });
+    }
+    return periods;
+};
+
+/** Транзакції конкретного місяця */
+export const filterByPeriod = (transactions: Transaction[], period: Period) =>
+    transactions.filter((t) => t.date && samePeriod(parsePeriod(t.date), period));
+
+/** Витрати / доходи за місяць (працює і з від'ємними amount із Firestore) */
+export const getTotals = (transactions: Transaction[], period: Period) => {
+    const items = filterByPeriod(transactions, period);
+    const sum = (type: string) =>
+        items
+            .filter((t) => t.type === type)
+            .reduce((s, t) => s + Math.abs(t.amount), 0);
+
+    return { expense: sum("expense"), income: sum("income") };
+};
+
+/** Групування за категоріями — верхній блок з іконками */
+export const getCategoryStats = (
+    transactions: Transaction[],
+    period: Period,
+    type: string
+): StatItem[] => {
+    const map = new Map<string, number>();
+
+    filterByPeriod(transactions, period)
+        .filter((t) => t.type === type)
+        .forEach((t) => {
+            const key = t.category || "Інше";
+            map.set(key, (map.get(key) ?? 0) + Math.abs(t.amount));
+        });
+
+    return [...map.entries()]
+        .map(([label, amount]) => ({
+            label,
+            amount,
+            icon: CATEGORY_ICONS[label] ?? DEFAULT_ICON,
+        }))
+        .sort((a, b) => b.amount - a.amount);
+};
+
+/** Групування за описом — нижня діаграма (з фільтром по категорії) */
+export const getDetailStats = (
+    transactions: Transaction[],
+    period: Period,
+    type: string,
+    category: string | null,
+    limit = 10
+): StatItem[] => {
+    const map = new Map<string, number>();
+
+    filterByPeriod(transactions, period)
+        .filter((t) => t.type === type)
+        .filter((t) => (category ? t.category === category : true))
+        .forEach((t) => {
+            const key = t.description?.trim() || t.category || "Інше";
+            map.set(key, (map.get(key) ?? 0) + Math.abs(t.amount));
+        });
+
+    return [...map.entries()]
+        .map(([label, amount]) => ({ label, amount, icon: "" }))
+        .sort((a, b) => b.amount - a.amount)
+        .slice(0, limit);
+};
+
+/** Баланс = стартовий баланс + усі доходи − усі витрати */
+export const getBalance = (transactions: Transaction[], startBalance: number) =>
+    transactions.reduce(
+        (sum, t) =>
+            t.type === "income" ? sum + Math.abs(t.amount) : sum - Math.abs(t.amount),
+        startBalance
+    );
 </file>
 
 <file path=".gitignore">
@@ -707,6 +740,321 @@ jobs:
         uses: actions/deploy-pages@v4
 </file>
 
+<file path="src/components/Compilation/Compilation.tsx">
+import React from "react";
+import styled from "styled-components";
+import type { Transaction } from "../../types/types";
+
+interface CompilationProps {
+  transactions: Transaction[];
+  type?: "expense" | "income";
+}
+
+const MONTH_NAMES = [
+  "Січень",
+  "Лютий",
+  "Березень",
+  "Квітень",
+  "Травень",
+  "Червень",
+  "Липень",
+  "Серпень",
+  "Вересень",
+  "Жовтень",
+  "Листопад",
+  "Грудень",
+];
+
+export const Compilation: React.FC<CompilationProps> = ({ transactions, type = "expense" }) => {
+  const getMonthlySummary = () => {
+    const summaryMap: Record<string, number> = {};
+
+    transactions.forEach((item) => {
+      if (item.type !== type) return;
+
+      let monthIndex = -1;
+
+      if (item.date.includes(".")) {
+        const parts = item.date.split(".");
+        if (parts.length >= 2) {
+          monthIndex = parseInt(parts[1], 10) - 1;
+        }
+      } else if (item.date.includes("-")) {
+        const parts = item.date.split("-");
+        if (parts.length >= 2) {
+          monthIndex = parseInt(parts[1], 10) - 1;
+        }
+      } else {
+        const parsedDate = new Date(item.date);
+        if (!isNaN(parsedDate.getTime())) {
+          monthIndex = parsedDate.getMonth();
+        }
+      }
+
+      if (monthIndex >= 0 && monthIndex < 12) {
+        const monthName = MONTH_NAMES[monthIndex];
+        const positiveAmount = Math.abs(item.amount);
+        summaryMap[monthName] = (summaryMap[monthName] || 0) + positiveAmount;
+      }
+    });
+
+    return Object.entries(summaryMap).map(([month, amount]) => ({
+      month,
+      amount,
+    }));
+  };
+
+  const summaryData = getMonthlySummary();
+
+  const formatAmount = (value: number) => {
+    return value.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+  };
+
+  return (
+    <CompilationWrapper>
+      <HeaderBox>
+        <CompilationTitle>Зведення</CompilationTitle>
+      </HeaderBox>
+      <ListContainer>
+        {summaryData.length > 0 ? (
+          summaryData.map((item, index) => (
+            <CompilationItem key={`${item.month}-${index}`}>
+              <MonthText>{item.month}</MonthText>
+              <AmountText>{formatAmount(item.amount)}</AmountText>
+            </CompilationItem>
+          ))
+        ) : (
+          <CompilationItem>
+            <MonthText style={{ margin: "0 auto" }}>Немає даних</MonthText>
+          </CompilationItem>
+        )}
+      </ListContainer>
+    </CompilationWrapper>
+  );
+};
+
+const CompilationWrapper = styled.div`
+  display: flex;
+  flex-direction: column;
+  width: 230px;
+  background: #f5f6fb;
+  border-radius: 20px 20px 20px 0px;
+  overflow: hidden;
+`;
+
+const HeaderBox = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 38px;
+  background: #f5f6fb;
+  border-bottom: 2px solid #ffffff;
+`;
+
+const CompilationTitle = styled.h3`
+  font-family: "Roboto", sans-serif;
+  font-weight: 700;
+  font-size: 12px;
+  line-height: 1;
+  letter-spacing: 0.02em;
+  text-align: center;
+  text-transform: uppercase;
+  color: #000000;
+  margin: 0;
+`;
+
+const ListContainer = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  background-color: #ffffff;
+`;
+
+const CompilationItem = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px;
+  height: 38px;
+  background: #f5f6fb;
+`;
+
+const MonthText = styled.span`
+  font-family: "Roboto", sans-serif;
+  font-weight: 400;
+  font-size: 12px;
+  line-height: 1;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #52555f;
+`;
+
+const AmountText = styled.span`
+  font-family: "Roboto", sans-serif;
+  font-weight: 400;
+  font-size: 12px;
+  line-height: 1;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #52555f;
+`;
+</file>
+
+<file path="src/components/BarChart.tsx">
+/** НОВИЙ ФАЙЛ → src/components/BarChart.tsx */
+import styled from "styled-components";
+import type { StatItem } from "../utils/stats";
+import { fmtShort } from "../constants/statistics";
+
+export function BarChart({ items }: { items: StatItem[] }) {
+  if (items.length === 0) {
+    return <Empty>Немає даних за обраний період</Empty>;
+  }
+
+  const max = Math.max(...items.map((i) => i.amount), 1);
+
+  return (
+    <Chart>
+      <Grid aria-hidden>
+        {Array.from({ length: 8 }).map((_, i) => (
+          <GridLine key={i} />
+        ))}
+      </Grid>
+
+      <Bars>
+        {items.map((item, i) => (
+          <Col key={item.label} title={`${item.label}: ${fmtShort(item.amount)} грн`}>
+            <Value>{fmtShort(item.amount)} грн</Value>
+            <Track>
+              <Bar $accent={i % 2 === 0} style={{ height: `${(item.amount / max) * 100}%` }} />
+            </Track>
+            <Label>{item.label}</Label>
+          </Col>
+        ))}
+      </Bars>
+    </Chart>
+  );
+}
+
+const Empty = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 280px;
+  font-size: 14px;
+  color: #52555f;
+`;
+
+const Chart = styled.div`
+  position: relative;
+  width: 100%;
+  height: 360px;
+  padding-top: 32px;
+`;
+
+const Grid = styled.div`
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 56px;
+  bottom: 32px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+`;
+
+const GridLine = styled.div`
+  width: 100%;
+  height: 1px;
+  background: #f2f4f8;
+`;
+
+const Bars = styled.div`
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-around;
+  gap: 8px;
+  height: 100%;
+`;
+
+const Col = styled.div`
+  display: flex;
+  flex: 1;
+  height: 100%;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+`;
+
+const Value = styled.span`
+  font-size: 11px;
+  color: #52555f;
+  white-space: nowrap;
+`;
+
+const Track = styled.div`
+  display: flex;
+  align-items: flex-end;
+  width: 100%;
+  max-width: 36px;
+  flex: 1;
+`;
+
+const Bar = styled.div<{ $accent: boolean }>`
+  width: 100%;
+  border-radius: 6px 6px 0 0;
+  background: ${({ $accent }) => ($accent ? "#f07020" : "#fbd8bf")};
+  transition: height 0.7s ease;
+`;
+
+const Label = styled.span`
+  max-width: 80px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+  color: #52555f;
+`;
+</file>
+
+<file path="src/constants/statistics.ts">
+/** НОВИЙ ФАЙЛ → src/constants/statistics.ts */
+
+export const MONTHS = [
+    "СІЧЕНЬ", "ЛЮТИЙ", "БЕРЕЗЕНЬ", "КВІТЕНЬ", "ТРАВЕНЬ", "ЧЕРВЕНЬ",
+    "ЛИПЕНЬ", "СЕРПЕНЬ", "ВЕРЕСЕНЬ", "ЖОВТЕНЬ", "ЛИСТОПАД", "ГРУДЕНЬ",
+];
+
+/** Останній місяць слайдера — грудень цього року (включно) */
+export const LAST_YEAR = 2033;
+
+/** Іконки категорій (ключі мають збігатися з <option> у TransactionForm) */
+export const CATEGORY_ICONS: Record<string, string> = {
+    "Продукти": "🛍️",
+    "Алкоголь": "🍸",
+    "Розваги": "🪁",
+    "Здоров'я": "🤲",
+    "Транспорт": "🚗",
+    "Все для дому": "🛋️",
+    "Техніка": "🛠️",
+    "Комуналка, зв'язок": "🧾",
+    "Спорт, хобі": "🏺",
+    "Навчання": "📖",
+    "Інше": "🗄️",
+    "ЗП": "💼",
+    "Дод. дохід": "💰",
+};
+
+export const DEFAULT_ICON = "🗄️";
+
+export const fmt = (n: number) =>
+    n.toLocaleString("uk-UA", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+export const fmtShort = (n: number) => n.toLocaleString("uk-UA");
+</file>
+
 <file path="src/redux/user/userReducer.ts">
 export { userReducer, setUser, clearError, clearMessage } from "./userSlice";
 export type { UserState, UserData } from "./userSlice";
@@ -806,10 +1154,6 @@ export const deleteTransactionFromDb = async (id: string) => {
     throw error;
   }
 };
-</file>
-
-<file path="src/App.css">
-
 </file>
 
 <file path="src/components/Header/Header.tsx">
@@ -1072,413 +1416,6 @@ export const Header: React.FC<HeaderProps> = ({ userName, onLogout }) => {
     </HeaderContainer>
   );
 };
-</file>
-
-<file path="src/components/TransactionForm/TransactionForm.tsx">
-import React, { useState } from 'react';
-import styled from 'styled-components';
-import {
-  collection,
-  addDoc,
-  serverTimestamp,
-} from 'firebase/firestore';
-import { db } from '../../firebase/config';
-
-interface TransactionData {
-  date: string;
-  description: string;
-  category: string;
-  amount: number;
-}
-
-interface TransactionFormProps {
-  onSubmit?: (data: TransactionData) => void;
-  type?: 'expense' | 'income';
-}
-
-export const TransactionForm: React.FC<TransactionFormProps> = ({
-  onSubmit,
-  type = 'expense',
-}) => {
-  const today = new Date().toISOString().split('T')[0];
-
-  const [date, setDate] = useState(today);
-  const [description, setDescription] = useState('');
-  const [category, setCategory] = useState('');
-  const [amount, setAmount] = useState('');
-
-  const handleClear = () => {
-    setDescription('');
-    setCategory('');
-    setAmount('');
-    setDate(today);
-  };
-
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-
-    const numericAmount = Number(amount.replace(',', '.'));
-
-    if (!description.trim()) {
-      alert('Введіть опис');
-      return;
-    }
-
-    if (!category) {
-      alert('Оберіть категорію');
-      return;
-    }
-
-    if (isNaN(numericAmount) || numericAmount <= 0) {
-      alert('Введіть правильну суму');
-      return;
-    }
-
-    const transactionData = {
-      date,
-      description: description.trim(),
-      category,
-      amount: numericAmount,
-      type,
-    };
-
-    try {
-      const docRef = await addDoc(
-        collection(db, 'transactions'),
-        {
-          ...transactionData,
-          createdAt: serverTimestamp(),
-        }
-      );
-
-      console.log('Транзакцію успішно додано!');
-      console.log('ID документа:', docRef.id);
-
-      if (onSubmit) {
-        onSubmit({
-          date,
-          description: description.trim(),
-          category,
-          amount: numericAmount,
-        });
-      }
-
-      handleClear();
-    } catch (error) {
-      console.error('Помилка Firebase:', error);
-      alert('Не вдалося зберегти транзакцію');
-    }
-  };
-
-  return (
-    <FormContainer onSubmit={handleSubmit}>
-      <DatePickerWrapper>
-        <CalendarIcon
-          viewBox="0 0 20 20"
-          fill="none"
-          xmlns="http://www.w3.org/2000/svg"
-        >
-          <path
-            d="M6 2V4M14 2V4M3 8H17M4 4H16C17.1046 4 18 4.89543 18 6V16C18 17.1046 17.1046 18 16 18H4C2.89543 18 2 17.1046 2 16V6C2 4.89543 2.89543 4 4 4Z"
-            stroke="#52555F"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </CalendarIcon>
-
-        <DateInput
-          type="date"
-          value={date}
-          onChange={(e) => setDate(e.target.value)}
-        />
-      </DatePickerWrapper>
-
-      <InputsGroup>
-        <InputDescription
-          type="text"
-          placeholder="Опис товару"
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-        />
-
-        <SelectCategoryWrapper>
-          <SelectCategory
-            value={category}
-            onChange={(e) => setCategory(e.target.value)}
-          >
-            <option value="" disabled hidden>
-              Категорія товару
-            </option>
-
-            <option value="Транспорт">Транспорт</option>
-            <option value="Продукти">Продукти</option>
-            <option value="Здоров'я">Здоров'я</option>
-            <option value="Алкоголь">Алкоголь</option>
-            <option value="Розваги">Розваги</option>
-            <option value="Все для дому">Все для дому</option>
-            <option value="Техніка">Техніка</option>
-            <option value="Комуналка, зв'язок">
-              Комуналка, зв'язок
-            </option>
-            <option value="Спорт, хобі">Спорт, хобі</option>
-            <option value="Навчання">Навчання</option>
-            <option value="Інше">Інше</option>
-          </SelectCategory>
-
-          <ArrowIcon viewBox="0 0 12 7" fill="none">
-            <path
-              d="M1 1L6 5L11 1"
-              stroke="#52555F"
-              strokeWidth="2"
-              strokeLinecap="round"
-            />
-          </ArrowIcon>
-        </SelectCategoryWrapper>
-
-        <AmountWrapper>
-          <InputAmount
-            type="text"
-            placeholder="0,00"
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-          />
-
-          <CalculatorIcon viewBox="0 0 20 20" fill="none">
-            <rect
-              x="3"
-              y="2"
-              width="14"
-              height="16"
-              rx="2"
-              stroke="#52555F"
-              strokeWidth="2"
-            />
-
-            <rect
-              x="6"
-              y="5"
-              width="8"
-              height="3"
-              fill="#52555F"
-            />
-
-            <circle cx="7" cy="11" r="1" fill="#52555F" />
-            <circle cx="10" cy="11" r="1" fill="#52555F" />
-            <circle cx="13" cy="11" r="1" fill="#52555F" />
-            <circle cx="7" cy="14" r="1" fill="#52555F" />
-            <circle cx="10" cy="14" r="1" fill="#52555F" />
-            <circle cx="13" cy="14" r="1" fill="#52555F" />
-          </CalculatorIcon>
-        </AmountWrapper>
-      </InputsGroup>
-
-      <ButtonGroup>
-        <SubmitButton type="submit">
-          ВВЕСТИ
-        </SubmitButton>
-
-        <ClearButton
-          type="button"
-          onClick={handleClear}
-        >
-          ОЧИСТИТИ
-        </ClearButton>
-      </ButtonGroup>
-    </FormContainer>
-  );
-};
-
-// --- STYLED COMPONENTS ---
-
-const FormContainer = styled.form`
-  display: flex;
-  align-items: center;
-  gap: 32px;
-  font-family: 'Roboto', sans-serif;
-  margin-top: 100px;
-
-  @media (max-width: 1280px) {
-    gap: 20px;
-  }
-
-  @media (max-width: 768px) {
-    flex-direction: column;
-    gap: 20px;
-    width: 100%;
-  }
-`;
-
-const DatePickerWrapper = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  cursor: pointer;
-`;
-
-const CalendarIcon = styled.svg`
-  width: 20px;
-  height: 20px;
-`;
-
-const DateInput = styled.input`
-  border: none;
-  background: transparent;
-  font-weight: 900;
-  font-size: 12px;
-  line-height: 14px;
-  letter-spacing: 0.04em;
-  color: #52555f;
-  outline: none;
-  cursor: pointer;
-`;
-
-const InputsGroup = styled.div`
-  display: flex;
-  align-items: center;
-  border: 2px solid #f5f6fb;
-  border-radius: 16px 16px 16px 0px;
-  background-color: #ffffff;
-
-  @media (max-width: 768px) {
-    flex-direction: column;
-    width: 100%;
-    border-radius: 16px;
-  }
-`;
-
-const BaseInput = styled.input`
-  height: 44px;
-  border: none;
-  outline: none;
-  font-size: 12px;
-  line-height: 14px;
-  letter-spacing: 0.02em;
-  color: #52555f;
-
-  &::placeholder {
-    color: #c7ccdc;
-  }
-`;
-
-const InputDescription = styled(BaseInput)`
-  width: 290px;
-  padding: 0 20px;
-  border-radius: 16px 0 0 16px;
-  border-right: 2px solid #f5f6fb;
-
-  @media (max-width: 768px) {
-    width: 100%;
-    border-right: none;
-    border-bottom: 2px solid #f5f6fb;
-    border-radius: 16px 16px 0 0;
-  }
-`;
-
-const SelectCategoryWrapper = styled.div`
-  position: relative;
-  display: flex;
-  align-items: center;
-`;
-
-const SelectCategory = styled.select`
-  width: 170px;
-  height: 44px;
-  padding: 0 35px 0 20px;
-  border: none;
-  border-right: 2px solid #f5f6fb;
-  background: transparent;
-  outline: none;
-  font-size: 12px;
-  color: #c7ccdc;
-  appearance: none;
-  cursor: pointer;
-
-  &:valid {
-    color: #52555f;
-  }
-
-  @media (max-width: 768px) {
-    width: 100%;
-    border-right: none;
-    border-bottom: 2px solid #f5f6fb;
-  }
-`;
-
-const ArrowIcon = styled.svg`
-  position: absolute;
-  right: 18px;
-  width: 10px;
-  height: 6px;
-  pointer-events: none;
-`;
-
-const AmountWrapper = styled.div`
-  display: flex;
-  align-items: center;
-  padding-right: 16px;
-  position: relative;
-`;
-
-const InputAmount = styled(BaseInput)`
-  width: 110px;
-  padding: 0 40px 0 12px;
-  text-align: right;
-  font-weight: 700;
-  border-radius: 0 16px 16px 0;
-
-  @media (max-width: 768px) {
-    width: 100%;
-    border-radius: 0 0 16px 16px;
-  }
-`;
-
-const CalculatorIcon = styled.svg`
-  position: absolute;
-  right: 16px;
-  width: 20px;
-  height: 20px;
-  pointer-events: none;
-`;
-
-const ButtonGroup = styled.div`
-  display: flex;
-  gap: 16px;
-`;
-
-const BaseButton = styled.button`
-  width: 136px;
-  height: 44px;
-  border-radius: 16px;
-  font-weight: 700;
-  font-size: 12px;
-  line-height: 14px;
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
-  cursor: pointer;
-  transition: all 0.2s ease-in-out;
-`;
-
-const SubmitButton = styled(BaseButton)`
-  background: #ff751d;
-  border: none;
-  color: #ffffff;
-  box-shadow: 1px 2px 5px rgba(255, 117, 29, 0.35);
-
-  &:hover {
-    background: #f56c11;
-  }
-`;
-
-const ClearButton = styled(BaseButton)`
-  background: #ffffff;
-  border: 2px solid #f5f6fb;
-  color: #52555f;
-
-  &:hover {
-    background: #f5f6fb;
-  }
-`;
 </file>
 
 <file path="src/components/AuthForm.tsx">
@@ -1745,82 +1682,489 @@ export const TransactionsTable: React.FC<TransactionsTableProps> = ({ items, onD
 };
 </file>
 
-<file path="src/pages/Home.tsx">
-import React, { useEffect, useState } from 'react';
-import { Navigate, useNavigate } from 'react-router-dom';
-import { onAuthStateChanged, signOut, User } from 'firebase/auth';
-import { auth } from '../firebase.ts';
-import { Header } from '../components/Header/Header.tsx';
-import { Balance } from '../components/Balance/Balance.tsx';
-import { TransactionForm } from '../components/TransactionForm/TransactionForm.tsx';
-
-import { Compilation } from '../components/Compilation/Compilation.tsx';
-import { TransactionsTable } from '../components/TransactionsTable.tsx';
-import type { Transaction } from '../types/types.ts';
+<file path="src/pages/StatisticsPage.tsx">
+/** НОВИЙ ФАЙЛ → src/pages/StatisticsPage.tsx */
+import { useMemo, useState } from "react";
+import styled from "styled-components";
+import { BarChart } from "../components/BarChart";
+import { MONTHS, fmt } from "../constants/statistics";
+import type { Transaction } from "../types/types";
 import {
-  subscribeToTransactions,
-  deleteTransactionFromDb,
-} from '../services/transactionsApi.ts';
-
-const Home: React.FC = () => {
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      setUser(currentUser);
-      setLoading(false);
-    });
-    return () => unsubscribe();
-  }, []);
-
-  const navigate = useNavigate();
-
-  const handleLogout = async () => {
-    try {
-      await signOut(auth);
-      navigate('/auth');
-    } catch (error) {
-      console.error("Error logging out:", error);
-    }
-  };
-
-  const handleDelete = async (id: string) => {
-    try {
-      await deleteTransactionFromDb(id);
-    } catch {
-      alert('Не вдалося видалити транзакцію');
-    }
-  };
-
-  if (loading) {
-    return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', fontFamily: 'sans-serif' }}>
-        Завантаження...
-      </div>
-    );
-  }
-
-  if (!user) {
-    return <Navigate to="/auth" replace />;
-  }
-
-  const userName = user.displayName || user.email || undefined;
-
-  return (
-    <div>
-      <Header userName={userName} onLogout={handleLogout} />
-     
-      <Balance />  
-      <TransactionForm /> 
-      <TransactionsTable items={transactions} onDelete={handleDelete} />
-      <Compilation />
-    </div>
-  );
+  buildPeriods,
+  getBalance,
+  getCategoryStats,
+  getDetailStats,
+  getFirstPeriod,
+  getTotals,
+  periodKey,
+} from "../utils/stats";
+import { Link, useNavigate } from 'react-router-dom';
+type Props = {
+  /** Транзакції з Firestore. Якщо не передати — сторінка покаже порожній стан */
+  transactions?: Transaction[];
+  /** Стартовий баланс рахунку */
+  initialBalance?: number;
+  onBack?: () => void;
 };
 
-export default Home;
+export default function StatisticsPage({
+  transactions = [],
+  initialBalance = 0,
+  onBack,
+}: Props) {
+  const [mode, setMode] = useState<"expense" | "income">("expense");
+  const [category, setCategory] = useState<string | null>(null);
+  const [startBalance, setStartBalance] = useState(initialBalance);
+  const [draft, setDraft] = useState(String(initialBalance));
+
+  // Слайдер: від місяця першої транзакції до грудня 2033
+  const periods = useMemo(() => buildPeriods(transactions), [transactions]);
+
+  const [index, setIndex] = useState(0);
+  useMemo(() => {
+    const first = getFirstPeriod(transactions);
+    const i = periods.findIndex((p) => periodKey(p) === periodKey(first));
+    if (i > -1) setIndex(i);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [transactions.length]);
+  const navigate = useNavigate();
+  const period = periods[Math.min(index, periods.length - 1)];
+
+  const totals = useMemo(() => getTotals(transactions, period), [transactions, period]);
+  const categories = useMemo(
+    () => getCategoryStats(transactions, period, mode),
+    [transactions, period, mode]
+  );
+  const details = useMemo(
+    () => getDetailStats(transactions, period, mode, category),
+    [transactions, period, mode, category]
+  );
+  const balance = useMemo(
+    () => getBalance(transactions, startBalance),
+    [transactions, startBalance]
+  );
+
+  const go = (dir: number) =>
+    setIndex((i) => Math.min(Math.max(i + dir, 0), periods.length - 1));
+
+  const toggleMode = () => {
+    setMode((m) => (m === "expense" ? "income" : "expense"));
+    setCategory(null);
+  };
+
+  return (
+    <Page>
+      <Blob />
+      <Container>
+        {/* --- Верхня панель --- */}
+        <TopBar>
+           <BackLink type="button" onClick={() => navigate('/home')}>
+            <span aria-hidden>←</span> Повернутись на головну
+          </BackLink>
+          
+          <BalanceForm
+            onSubmit={(e) => {
+              e.preventDefault();
+              const v = Number(draft.replace(/\s/g, "").replace(",", "."));
+              if (!Number.isNaN(v)) setStartBalance(v);
+            }}
+          >
+            <MutedLabel>Баланс:</MutedLabel>
+            <BalanceBox>
+              <BalanceInput
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                onFocus={(e) => e.target.select()}
+              />
+              <Currency>UAH</Currency>
+            </BalanceBox>
+            <ConfirmBtn type="submit">ПІДТВЕРДИТИ</ConfirmBtn>
+          </BalanceForm>
+
+          {/* --- Слайдер періоду --- */}
+          <Period>
+            <MutedLabel>Поточний період</MutedLabel>
+            <PeriodRow>
+              <Arrow type="button" onClick={() => go(-1)} disabled={index === 0}>
+                ‹
+              </Arrow>
+              <PeriodValue>
+                {MONTHS[period.month]}
+                <br />
+                {period.year}
+              </PeriodValue>
+              <Arrow
+                type="button"
+                onClick={() => go(1)}
+                disabled={index >= periods.length - 1}
+              >
+                ›
+              </Arrow>
+            </PeriodRow>
+          </Period>
+        </TopBar>
+
+        {/* --- Підсумок місяця --- */}
+        <SummaryCard>
+          <SummaryItem>
+            <SummaryLabel>Витрати:</SummaryLabel>
+            <SummaryValue $color="#e53e3e">- {fmt(totals.expense)} грн.</SummaryValue>
+          </SummaryItem>
+          <Divider />
+          <SummaryItem>
+            <SummaryLabel>Доходи:</SummaryLabel>
+            <SummaryValue $color="#38a169">+ {fmt(totals.income)} грн.</SummaryValue>
+          </SummaryItem>
+          <Divider />
+          <SummaryItem>
+            <SummaryLabel>Баланс:</SummaryLabel>
+            <SummaryValue>{fmt(balance)} грн.</SummaryValue>
+          </SummaryItem>
+        </SummaryCard>
+
+        {/* --- Категорії --- */}
+        <Card>
+          <SwitchRow>
+            <Arrow type="button" onClick={toggleMode}>‹</Arrow>
+            <SwitchTitle>{mode === "expense" ? "ВИТРАТИ" : "ДОХОДИ"}</SwitchTitle>
+            <Arrow type="button" onClick={toggleMode}>›</Arrow>
+          </SwitchRow>
+
+          {categories.length === 0 ? (
+            <EmptyText>
+              За {MONTHS[period.month].toLowerCase()} {period.year} немає{" "}
+              {mode === "expense" ? "витрат" : "доходів"}
+            </EmptyText>
+          ) : (
+            <CategoryGrid>
+              {categories.map((c) => {
+                const active = category === c.label;
+                return (
+                  <CategoryBtn
+                    key={c.label}
+                    type="button"
+                    $active={active}
+                    onClick={() => setCategory(active ? null : c.label)}
+                  >
+                    <CatAmount>{fmt(c.amount)}</CatAmount>
+                    <CatIcon>{c.icon}</CatIcon>
+                    <CatLabel $active={active}>{c.label}</CatLabel>
+                  </CategoryBtn>
+                );
+              })}
+            </CategoryGrid>
+          )}
+        </Card>
+
+        {/* --- Діаграма по описах транзакцій --- */}
+        <Card>
+          {category && (
+            <FilterRow>
+              <FilterName>{category}</FilterName>
+              <ResetBtn type="button" onClick={() => setCategory(null)}>
+                показати всі
+              </ResetBtn>
+            </FilterRow>
+          )}
+          <BarChart items={details} />
+        </Card>
+      </Container>
+    </Page>
+  );
+}
+
+/* ---------------- styles ---------------- */
+
+const Page = styled.div`
+  position: relative;
+  min-height: 100vh;
+  overflow-x: hidden;
+  background: #f7f9fc;
+  font-family: "Roboto", sans-serif;
+  color: #08060d;
+`;
+
+const Blob = styled.div`
+  position: absolute;
+  top: 64px;
+  left: -320px;
+  width: 620px;
+  height: 620px;
+  border-radius: 50%;
+  background: #eaf0ff;
+  pointer-events: none;
+`;
+
+const Container = styled.main`
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  max-width: 1060px;
+  margin: 0 auto;
+  padding: 32px 16px 80px;
+`;
+
+const TopBar = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+`;
+
+const BackLink  = styled.button`
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 13px;
+  color: #52555f;
+
+  span {
+    font-size: 18px;
+    color: #ff751d;
+  }
+
+  &:hover {
+    color: #ff751d;
+  }
+`;
+
+const BalanceForm = styled.form`
+  display: flex;
+  align-items: center;
+  gap: 12px;
+`;
+
+const MutedLabel = styled.span`
+  display: block;
+  font-size: 12px;
+  color: rgba(82, 85, 95, 0.7);
+`;
+
+const BalanceBox = styled.div`
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 10px 30px rgba(170, 178, 197, 0.25);
+`;
+
+const BalanceInput = styled.input`
+  width: 120px;
+  height: 44px;
+  border: none;
+  outline: none;
+  background: transparent;
+  text-align: right;
+  font-size: 13px;
+  font-weight: 700;
+`;
+
+const Currency = styled.span`
+  padding-left: 4px;
+  font-size: 13px;
+  font-weight: 700;
+`;
+
+const ConfirmBtn = styled.button`
+  height: 44px;
+  padding: 0 20px;
+  border: 2px solid #fff;
+  border-radius: 16px;
+  background: transparent;
+  font-size: 12px;
+  color: rgba(82, 85, 95, 0.7);
+  cursor: pointer;
+  transition: all 0.2s;
+
+  &:hover {
+    background: #ff751d;
+    border-color: #ff751d;
+    color: #fff;
+  }
+`;
+
+const Period = styled.div`
+  text-align: center;
+`;
+
+const PeriodRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 4px;
+`;
+
+const PeriodValue = styled.div`
+  min-width: 120px;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.35;
+  letter-spacing: 0.04em;
+`;
+
+const Arrow = styled.button`
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-size: 24px;
+  line-height: 1;
+  color: #ff751d;
+  padding: 0 4px;
+
+  &:disabled {
+    opacity: 0.25;
+    cursor: default;
+  }
+`;
+
+const Card = styled.section`
+  padding: 28px 32px;
+  background: #fff;
+  border-radius: 24px;
+  box-shadow: 0 10px 40px rgba(170, 178, 197, 0.18);
+`;
+
+const SummaryCard = styled(Card)`
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 32px;
+  padding: 20px 32px;
+`;
+
+const SummaryItem = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 12px;
+`;
+
+const Divider = styled.span`
+  width: 2px;
+  height: 22px;
+  background: #f0f1f5;
+`;
+
+const SummaryLabel = styled.span`
+  font-size: 13px;
+  font-weight: 700;
+  color: #52555f;
+`;
+
+const SummaryValue = styled.span<{ $color?: string }>`
+  font-size: 13px;
+  font-weight: 700;
+  color: ${({ $color }) => $color ?? "#08060d"};
+`;
+
+const SwitchRow = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  margin-bottom: 26px;
+`;
+
+const SwitchTitle = styled.h2`
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+`;
+
+const CategoryGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  justify-items: center;
+  gap: 28px 12px;
+
+  @media (max-width: 900px) {
+    grid-template-columns: repeat(4, 1fr);
+  }
+  @media (max-width: 560px) {
+    grid-template-columns: repeat(3, 1fr);
+  }
+`;
+
+const CategoryBtn = styled.button<{ $active: boolean }>`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px;
+  border: none;
+  border-radius: 16px;
+  cursor: pointer;
+  text-align: center;
+  background: ${({ $active }) => ($active ? "#fff3ea" : "transparent")};
+  transition: background 0.2s;
+
+  &:hover {
+    background: ${({ $active }) => ($active ? "#fff3ea" : "#fafbfd")};
+  }
+`;
+
+const CatAmount = styled.span`
+  font-size: 12px;
+  color: #52555f;
+`;
+
+const CatIcon = styled.span`
+  font-size: 34px;
+  line-height: 1;
+`;
+
+const CatLabel = styled.span<{ $active: boolean }>`
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: ${({ $active }) => ($active ? "#ff751d" : "#52555f")};
+`;
+
+const EmptyText = styled.p`
+  margin: 0;
+  padding: 24px 0;
+  text-align: center;
+  font-size: 14px;
+  color: #52555f;
+`;
+
+const FilterRow = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-bottom: 8px;
+  font-size: 12px;
+  color: #52555f;
+`;
+
+const FilterName = styled.span`
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+`;
+
+const ResetBtn = styled.button`
+  border: none;
+  background: none;
+  cursor: pointer;
+  text-decoration: underline;
+  font-size: 12px;
+  color: #52555f;
+
+  &:hover {
+    color: #ff751d;
+  }
+`;
 </file>
 
 <file path="src/redux/user/userOperations.ts">
@@ -1957,6 +2301,14 @@ export type Transaction = {
 };
 </file>
 
+<file path="src/App.css">
+* {
+  padding: 0;
+  margin: 0;
+  box-sizing: border-box;
+}
+</file>
+
 <file path="src/firebase.ts">
 import { initializeApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
@@ -2057,6 +2409,427 @@ export default defineConfig({
   plugins: [react()],
   base: '/InvestIQ/',
 });
+</file>
+
+<file path="src/components/TransactionForm/TransactionForm.tsx">
+import React, { useState } from 'react';
+import styled from 'styled-components';
+import {
+  collection,
+  addDoc,
+  serverTimestamp,
+} from 'firebase/firestore';
+import { db } from '../../firebase/config';
+
+interface TransactionData {
+  date: string;
+  description: string;
+  category: string;
+  amount: number;
+}
+
+interface TransactionFormProps {
+  onSubmit?: (data: TransactionData) => void;
+  type?: 'expense' | 'income';
+}
+
+export const TransactionForm: React.FC<TransactionFormProps> = ({
+  onSubmit,
+  type = 'expense',
+}) => {
+  const today = new Date().toISOString().split('T')[0];
+
+  const [date, setDate] = useState(today);
+  const [description, setDescription] = useState('');
+  const [category, setCategory] = useState('');
+  const [amount, setAmount] = useState('');
+
+  const handleClear = () => {
+    setDescription('');
+    setCategory('');
+    setAmount('');
+    setDate(today);
+  };
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+
+    const numericAmount = Number(amount.replace(',', '.'));
+
+    if (!description.trim()) {
+      alert('Введіть опис');
+      return;
+    }
+
+    if (!category) {
+      alert('Оберіть категорію');
+      return;
+    }
+
+    if (isNaN(numericAmount) || numericAmount <= 0) {
+      alert('Введіть правильну суму');
+      return;
+    }
+
+    const transactionData = {
+      date,
+      description: description.trim(),
+      category,
+      amount: numericAmount,
+      type,
+    };
+
+    try {
+      const docRef = await addDoc(
+        collection(db, 'transactions'),
+        {
+          ...transactionData,
+          createdAt: serverTimestamp(),
+        }
+      );
+
+      console.log('Транзакцію успішно додано!');
+      console.log('ID документа:', docRef.id);
+
+      if (onSubmit) {
+        onSubmit({
+          date,
+          description: description.trim(),
+          category,
+          amount: numericAmount,
+        });
+      }
+
+      handleClear();
+    } catch (error) {
+      console.error('Помилка Firebase:', error);
+      alert('Не вдалося зберегти транзакцію');
+    }
+  };
+
+  return (
+    <FormContainer onSubmit={handleSubmit}>
+      <DatePickerWrapper>
+        <CalendarIcon
+          viewBox="0 0 20 20"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <path
+            d="M6 2V4M14 2V4M3 8H17M4 4H16C17.1046 4 18 4.89543 18 6V16C18 17.1046 17.1046 18 16 18H4C2.89543 18 2 17.1046 2 16V6C2 4.89543 2.89543 4 4 4Z"
+            stroke="#52555F"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </CalendarIcon>
+
+        <DateInput
+          type="date"
+          value={date}
+          onChange={(e) => setDate(e.target.value)}
+        />
+      </DatePickerWrapper>
+
+      <InputsGroup>
+        <InputDescription
+          type="text"
+          placeholder="Опис товару"
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+        />
+
+        <SelectCategoryWrapper>
+          <SelectCategory
+            value={category}
+            onChange={(e) => setCategory(e.target.value)}
+          >
+            <option value="" disabled hidden>
+              Категорія товару
+            </option>
+
+            <option value="Транспорт">Транспорт</option>
+            <option value="Продукти">Продукти</option>
+            <option value="Здоров'я">Здоров'я</option>
+            <option value="Алкоголь">Алкоголь</option>
+            <option value="Розваги">Розваги</option>
+            <option value="Все для дому">Все для дому</option>
+            <option value="Техніка">Техніка</option>
+            <option value="Комуналка, зв'язок">
+              Комуналка, зв'язок
+            </option>
+            <option value="Спорт, хобі">Спорт, хобі</option>
+            <option value="Навчання">Навчання</option>
+            <option value="Інше">Інше</option>
+          </SelectCategory>
+
+          <ArrowIcon viewBox="0 0 12 7" fill="none">
+            <path
+              d="M1 1L6 5L11 1"
+              stroke="#52555F"
+              strokeWidth="2"
+              strokeLinecap="round"
+            />
+          </ArrowIcon>
+        </SelectCategoryWrapper>
+
+        <AmountWrapper>
+          <InputAmount
+            type="text"
+            placeholder="0,00"
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+          />
+
+          <CalculatorIcon viewBox="0 0 20 20" fill="none">
+            <rect
+              x="3"
+              y="2"
+              width="14"
+              height="16"
+              rx="2"
+              stroke="#52555F"
+              strokeWidth="2"
+            />
+
+            <rect
+              x="6"
+              y="5"
+              width="8"
+              height="3"
+              fill="#52555F"
+            />
+
+            <circle cx="7" cy="11" r="1" fill="#52555F" />
+            <circle cx="10" cy="11" r="1" fill="#52555F" />
+            <circle cx="13" cy="11" r="1" fill="#52555F" />
+            <circle cx="7" cy="14" r="1" fill="#52555F" />
+            <circle cx="10" cy="14" r="1" fill="#52555F" />
+            <circle cx="13" cy="14" r="1" fill="#52555F" />
+          </CalculatorIcon>
+        </AmountWrapper>
+        <SelectCategoryWrapper>
+          <SelectCategory
+            value={category}
+            onChange={(e) => setCategory(e.target.value)}
+          >
+            <option value="" disabled hidden>
+              Категорія  дії
+            </option>
+
+            <option value="Income">Дохід</option>
+            <option value="Expense">Витрати</option>
+            
+          </SelectCategory>
+          </SelectCategoryWrapper>
+      </InputsGroup>
+     
+      <ButtonGroup>
+        <SubmitButton type="submit">
+          ВВЕСТИ
+        </SubmitButton>
+
+        <ClearButton
+          type="button"
+          onClick={handleClear}
+        >
+          ОЧИСТИТИ
+        </ClearButton>
+      </ButtonGroup>
+    </FormContainer>
+  );
+};
+
+// --- STYLED COMPONENTS ---
+
+const FormContainer = styled.form`
+  display: flex;
+  align-items: center;
+  gap: 32px;
+  font-family: 'Roboto', sans-serif;
+  margin-top: 100px;
+
+  @media (max-width: 1280px) {
+    gap: 20px;
+  }
+
+  @media (max-width: 768px) {
+    flex-direction: column;
+    gap: 20px;
+    width: 100%;
+  }
+`;
+
+const DatePickerWrapper = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+`;
+
+const CalendarIcon = styled.svg`
+  width: 20px;
+  height: 20px;
+`;
+
+const DateInput = styled.input`
+  border: none;
+  background: transparent;
+  font-weight: 900;
+  font-size: 12px;
+  line-height: 14px;
+  letter-spacing: 0.04em;
+  color: #52555f;
+  outline: none;
+  cursor: pointer;
+`;
+
+const InputsGroup = styled.div`
+  display: flex;
+  align-items: center;
+  border: 2px solid #f5f6fb;
+  border-radius: 16px 16px 16px 0px;
+  background-color: #ffffff;
+
+  @media (max-width: 768px) {
+    flex-direction: column;
+    width: 100%;
+    border-radius: 16px;
+  }
+`;
+
+const BaseInput = styled.input`
+  height: 44px;
+  border: none;
+  outline: none;
+  font-size: 12px;
+  line-height: 14px;
+  letter-spacing: 0.02em;
+  color: #52555f;
+
+  &::placeholder {
+    color: #c7ccdc;
+  }
+`;
+
+const InputDescription = styled(BaseInput)`
+  width: 290px;
+  padding: 0 20px;
+  border-radius: 16px 0 0 16px;
+  border-right: 2px solid #f5f6fb;
+
+  @media (max-width: 768px) {
+    width: 100%;
+    border-right: none;
+    border-bottom: 2px solid #f5f6fb;
+    border-radius: 16px 16px 0 0;
+  }
+`;
+
+const SelectCategoryWrapper = styled.div`
+  position: relative;
+  display: flex;
+  align-items: center;
+`;
+
+const SelectCategory = styled.select`
+  width: 170px;
+  height: 44px;
+  padding: 0 35px 0 20px;
+  border: none;
+  border-right: 2px solid #f5f6fb;
+  background: transparent;
+  outline: none;
+  font-size: 12px;
+  color: #c7ccdc;
+  appearance: none;
+  cursor: pointer;
+
+  &:valid {
+    color: #52555f;
+  }
+
+  @media (max-width: 768px) {
+    width: 100%;
+    border-right: none;
+    border-bottom: 2px solid #f5f6fb;
+  }
+`;
+
+const ArrowIcon = styled.svg`
+  position: absolute;
+  right: 18px;
+  width: 10px;
+  height: 6px;
+  pointer-events: none;
+`;
+
+const AmountWrapper = styled.div`
+  display: flex;
+  align-items: center;
+  padding-right: 16px;
+  position: relative;
+`;
+
+const InputAmount = styled(BaseInput)`
+  width: 110px;
+  padding: 0 40px 0 12px;
+  text-align: right;
+  font-weight: 700;
+  border-radius: 0 16px 16px 0;
+
+  @media (max-width: 768px) {
+    width: 100%;
+    border-radius: 0 0 16px 16px;
+  }
+`;
+
+const CalculatorIcon = styled.svg`
+  position: absolute;
+  right: 16px;
+  width: 20px;
+  height: 20px;
+  pointer-events: none;
+`;
+
+const ButtonGroup = styled.div`
+  display: flex;
+  gap: 16px;
+`;
+
+const BaseButton = styled.button`
+  width: 136px;
+  height: 44px;
+  border-radius: 16px;
+  font-weight: 700;
+  font-size: 12px;
+  line-height: 14px;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+`;
+
+const SubmitButton = styled(BaseButton)`
+  background: #ff751d;
+  border: none;
+  color: #ffffff;
+  box-shadow: 1px 2px 5px rgba(255, 117, 29, 0.35);
+
+  &:hover {
+    background: #f56c11;
+  }
+`;
+
+const ClearButton = styled(BaseButton)`
+  background: #ffffff;
+  border: 2px solid #f5f6fb;
+  color: #52555f;
+
+  &:hover {
+    background: #f5f6fb;
+  }
+`;
 </file>
 
 <file path="src/pages/LoginPage.tsx">
@@ -2451,6 +3224,158 @@ const LoginPage: React.FC = () => {
 export default LoginPage;
 </file>
 
+<file path="src/pages/Home.tsx">
+import React, { useEffect, useState } from "react";
+import { Navigate, useNavigate } from "react-router-dom";
+import { onAuthStateChanged, User } from "firebase/auth";
+import { auth } from "../firebase.ts";
+import { Balance } from "../components/Balance/Balance.tsx";
+import { TransactionForm } from "../components/TransactionForm/TransactionForm.tsx";
+import { Compilation } from "../components/Compilation/Compilation.tsx";
+import { TransactionsTable } from "../components/TransactionsTable.tsx";
+import type { Transaction } from "../types/types.ts";
+import { subscribeToTransactions, deleteTransactionFromDb } from "../services/transactionsApi.ts";
+import styled from "styled-components";
+import { IoBarChart } from "react-icons/io5";
+
+const Home: React.FC = () => {
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+      setLoading(false);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    const unsubscribe = subscribeToTransactions(setTransactions);
+    return () => unsubscribe();
+  }, []);
+
+  const handleDelete = async (id: string) => {
+    try {
+      await deleteTransactionFromDb(id);
+    } catch {
+      alert("Не вдалося видалити транзакцію");
+    }
+  };
+
+  if (loading) {
+    return <LoadingBox>Завантаження...</LoadingBox>;
+  }
+
+  if (!user) {
+    return <Navigate to="/auth" replace />;
+  }
+
+  const expenses = transactions.filter((t) => t.type === "expense");
+
+  return (
+    <ContentContainer>
+      <TopBar>
+        <BalanceBox>
+          <Balance />
+        </BalanceBox>
+        <ReportsButton type="button" onClick={() => navigate("/spends")}>
+          <span>Перейти до розрахунків</span>
+          <IoBarChart size={18} color="#52555f" />
+        </ReportsButton>
+      </TopBar>
+
+      <MainCard>
+        <TransactionForm />
+
+        <TableAndSummarySection>
+          <TableWrapper>
+            <TransactionsTable items={expenses} onDelete={handleDelete} />
+          </TableWrapper>
+          <Compilation transactions={transactions} type="expense" />
+        </TableAndSummarySection>
+      </MainCard>
+    </ContentContainer>
+  );
+};
+
+export default Home;
+
+const LoadingBox = styled.div`
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+`;
+
+const ContentContainer = styled.div`
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 40px 20px 0;
+`;
+
+const TopBar = styled.div`
+  display: flex;
+  margin-bottom: 50px;
+  @media (max-width: 768px) {
+    flex-direction: column-reverse;
+    gap: 20px;
+  }
+`;
+
+const BalanceBox = styled.div`
+  margin: 0 auto;
+`;
+
+const ReportsButton = styled.button`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  color: rgba(82, 85, 95, 0.7);
+  transition: color 0.2s ease;
+  svg {
+    transition: fill 0.2s ease;
+  }
+  &:hover {
+    color: #ff751d;
+    svg {
+      fill: #ff751d;
+    }
+  }
+`;
+
+const MainCard = styled.div`
+  background-color: #ffffff;
+  border-radius: 30px;
+  padding: 30px 20px 60px;
+  box-shadow: 0px 10px 60px rgba(170, 178, 197, 0.2);
+`;
+
+const TableAndSummarySection = styled.div`
+  display: flex;
+  gap: 30px;
+  margin-top: 60px;
+  align-items: flex-start;
+
+  @media (max-width: 900px) {
+    flex-direction: column;
+    align-items: center;
+  }
+`;
+
+const TableWrapper = styled.div`
+  flex: 1;
+`;
+</file>
+
 <file path="package.json">
 {
   "name": "InvestIQ",
@@ -2500,26 +3425,96 @@ export default LoginPage;
 </file>
 
 <file path="src/App.tsx">
-import React from "react";
-import { Routes, Route, Navigate } from "react-router-dom";
+import "./App.css";
+import React, { useEffect, useState } from "react";
+import { Routes, Route, Navigate, useNavigate, useLocation } from "react-router-dom";
 import { lazy, Suspense } from "react";
-const Home = lazy(() => import("./pages/Home"));
-const LoginPage = lazy(() => import("./pages/LoginPage"));
+import { onAuthStateChanged, signOut, User } from "firebase/auth";
+import { auth } from "./firebase.ts";
+import styled from "styled-components";
+
+const Header = lazy(() =>
+  import("./components/Header/Header.tsx").then((module) => ({
+    default: module.Header,
+  }))
+);
+
+const Home = lazy(() => import("./pages/Home.tsx"));
+const LoginPage = lazy(() => import("./pages/LoginPage.tsx"));
+const StatisticsPage = lazy(() => import("./pages/StatisticsPage.tsx"));
+
 const App: React.FC = () => {
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+      setLoading(false);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      navigate("/auth");
+    } catch (error) {
+      console.error("Помилка виходу:", error);
+    }
+  };
+
+  const userName = user?.displayName || user?.email || undefined;
+  const isAuthPage = location.pathname === "/auth";
+
+  if (loading) {
+    return <LoadingFallback>Завантаження...</LoadingFallback>;
+  }
+
   return (
-    <Suspense fallback={<div>Loading...</div>}>
-      <Routes>
-        <Route path="/" element={<Navigate to="/auth" />} />
-        <Route path="/auth" element={<LoginPage />} />
-        {/* <Route element={<PrivateRoute />}> */}
-          <Route path="/home" element={<Home />} />
-        {/* </Route> */}
-      </Routes>
-    </Suspense>
+    <AppWrapper>
+      <Suspense fallback={<LoadingFallback>Завантаження...</LoadingFallback>}>
+        {!isAuthPage && <Header userName={userName} onLogout={handleLogout} />}
+
+        <MainLayout>
+          <Routes>
+            <Route path="/" element={<Navigate to="/auth" replace />} />
+            <Route path="/auth" element={<LoginPage />} />
+            <Route path="/home" element={<Home />} />
+            <Route path="/spends" element={<StatisticsPage />} />
+          </Routes>
+        </MainLayout>
+      </Suspense>
+    </AppWrapper>
   );
 };
 
 export default App;
+
+const AppWrapper = styled.div`
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background-color: #f5f6fb;
+`;
+
+const MainLayout = styled.main`
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+`;
+
+const LoadingFallback = styled.div`
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  font-family: "Roboto", sans-serif;
+  color: #52555f;
+`;
 </file>
 
 </files>
