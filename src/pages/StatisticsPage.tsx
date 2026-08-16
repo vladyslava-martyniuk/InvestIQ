@@ -13,7 +13,7 @@ import {
   getTotals,
   periodKey,
 } from "../utils/stats";
-
+import { Link, useNavigate } from 'react-router-dom';
 type Props = {
   /** Транзакції з Firestore. Якщо не передати — сторінка покаже порожній стан */
   transactions?: Transaction[];
@@ -42,7 +42,7 @@ export default function StatisticsPage({
     if (i > -1) setIndex(i);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [transactions.length]);
-
+  const navigate = useNavigate();
   const period = periods[Math.min(index, periods.length - 1)];
 
   const totals = useMemo(() => getTotals(transactions, period), [transactions, period]);
@@ -73,10 +73,10 @@ export default function StatisticsPage({
       <Container>
         {/* --- Верхня панель --- */}
         <TopBar>
-          <BackLink type="button" onClick={onBack}>
+           <BackLink type="button" onClick={() => navigate('/home')}>
             <span aria-hidden>←</span> Повернутись на головну
           </BackLink>
-
+          
           <BalanceForm
             onSubmit={(e) => {
               e.preventDefault();
@@ -229,7 +229,7 @@ const TopBar = styled.div`
   gap: 20px;
 `;
 
-const BackLink = styled.button`
+const BackLink  = styled.button`
   display: flex;
   align-items: center;
   gap: 10px;

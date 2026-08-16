@@ -13,7 +13,7 @@ import {
   subscribeToTransactions,
   deleteTransactionFromDb,
 } from '../services/transactionsApi.ts';
-
+import  styled from "styled-components";
 const Home: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
@@ -67,8 +67,12 @@ const Home: React.FC = () => {
   return (
     <div>
       <Header userName={userName} onLogout={handleLogout} />
-     
+      <BalanceWrapper>
       <Balance />  
+      <BackLink type="button" onClick={() => navigate('/home')}>
+            <span aria-hidden>←</span> Перейти на сторінку  доходів
+          </BackLink> 
+      </BalanceWrapper>
       <TransactionForm /> 
       <TransactionsTable items={transactions} onDelete={handleDelete} />
       <Compilation />
@@ -77,3 +81,32 @@ const Home: React.FC = () => {
 };
 
 export default Home;
+
+const BackLink  = styled.button`
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 13px;
+  color: #52555f;
+
+  span {
+    font-size: 18px;
+    color: #ff751d;
+  }
+
+  &:hover {
+    color: #ff751d;
+  }
+`;
+ const BalanceWrapper = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: center; 
+  gap: 20px;
+  width: 100%;
+  position: relative;
+  font-family: 'Roboto', 'Open Sans', sans-serif;
+  `;
