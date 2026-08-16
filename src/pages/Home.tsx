@@ -1,10 +1,9 @@
 import React, { useEffect, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
-import { onAuthStateChanged, signOut, User } from "firebase/auth";
+import { onAuthStateChanged, User } from "firebase/auth";
 import styled from "styled-components";
 import { IoBarChart } from "react-icons/io5";
 import { auth } from "../firebase.ts";
-import { Header } from "../components/Header/Header.tsx";
 import { Balance } from "../components/Balance/Balance.tsx";
 import { TransactionForm } from "../components/TransactionForm/TransactionForm.tsx";
 import { Compilation } from "../components/Compilation/Compilation.tsx";
@@ -47,15 +46,6 @@ const Home: React.FC = () => {
     setStartBalance(saved === null ? null : Number(saved));
   }, [user]);
 
-  const handleLogout = async () => {
-    try {
-      await signOut(auth);
-      navigate("/auth");
-    } catch (error) {
-      console.error("Error logging out:", error);
-    }
-  };
-
   const handleDelete = async (id: string) => {
     if (!user) return;
 
@@ -81,16 +71,11 @@ const Home: React.FC = () => {
     return <Navigate to="/auth" replace />;
   }
 
-  const userName = user.displayName || user.email || undefined;
-
   const transactionsTotal = transactions.reduce((sum, tx) => sum + tx.amount, 0);
   const currentBalance = (startBalance ?? 0) + transactionsTotal;
 
   return (
-    <>
-      <Header userName={userName} onLogout={handleLogout} />
-
-      <ContentContainer>
+    <ContentContainer>
         <TopBar>
           <BalanceBox>
             <Balance
@@ -115,8 +100,7 @@ const Home: React.FC = () => {
             <Compilation transactions={transactions} type="expense" />
           </TableAndSummarySection>
         </MainCard>
-      </ContentContainer>
-    </>
+    </ContentContainer>
   );
 };
 
