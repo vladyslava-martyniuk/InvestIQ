@@ -1,116 +1,97 @@
-/** НОВИЙ ФАЙЛ → src/components/BarChart.tsx */
+import React from "react";
 import styled from "styled-components";
-import type { StatItem } from "../utils/stats";
-import { fmtShort } from "../constants/statistics";
+import type { DetailStat } from "../utils/stats";
+import { fmt } from "../constants/statistics";
 
-export function BarChart({ items }: { items: StatItem[] }) {
-  if (items.length === 0) {
-    return <Empty>Немає даних за обраний період</Empty>;
-  }
-
-  const max = Math.max(...items.map((i) => i.amount), 1);
-
-  return (
-    <Chart>
-      <Grid aria-hidden>
-        {Array.from({ length: 8 }).map((_, i) => (
-          <GridLine key={i} />
-        ))}
-      </Grid>
-
-      <Bars>
-        {items.map((item, i) => (
-          <Col key={item.label} title={`${item.label}: ${fmtShort(item.amount)} грн`}>
-            <Value>{fmtShort(item.amount)} грн</Value>
-            <Track>
-              <Bar $accent={i % 2 === 0} style={{ height: `${(item.amount / max) * 100}%` }} />
-            </Track>
-            <Label>{item.label}</Label>
-          </Col>
-        ))}
-      </Bars>
-    </Chart>
-  );
+interface Props {
+  items: DetailStat[];
 }
 
-const Empty = styled.div`
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 280px;
-  font-size: 14px;
-  color: #52555f;
-`;
+export const BarChart: React.FC<Props> = ({ items }) => {
+  if (items.length === 0) {
+    return <Empty>Немає даних для відображення</Empty>;
+  }
 
-const Chart = styled.div`
-  position: relative;
-  width: 100%;
-  height: 360px;
-  padding-top: 32px;
-`;
+  const max = Math.max(...items.map((i) => i.amount));
 
-const Grid = styled.div`
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 56px;
-  bottom: 32px;
+  return (
+    <Wrapper>
+      {items.map((item) => {
+        const percent = max > 0 ? (item.amount / max) * 100 : 0;
+        return (
+          <Row key={item.label}>
+            <LabelCol title={item.label}>{item.label}</LabelCol>
+            <BarCol>
+              <BarTrack>
+                <BarFill style={{ width: `${percent}%` }} />
+              </BarTrack>
+            </BarCol>
+            <AmountCol>{fmt(item.amount)} грн.</AmountCol>
+          </Row>
+        );
+      })}
+    </Wrapper>
+  );
+};
+
+const Wrapper = styled.div`
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
+  gap: 14px;
 `;
 
-const GridLine = styled.div`
-  width: 100%;
-  height: 1px;
-  background: #f2f4f8;
-`;
-
-const Bars = styled.div`
-  position: relative;
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-around;
-  gap: 8px;
-  height: 100%;
-`;
-
-const Col = styled.div`
-  display: flex;
-  flex: 1;
-  height: 100%;
-  flex-direction: column;
+const Row = styled.div`
+  display: grid;
+  grid-template-columns: 180px 1fr 140px;
   align-items: center;
-  justify-content: flex-end;
-  gap: 6px;
+  gap: 16px;
+
+  @media (max-width: 640px) {
+    grid-template-columns: 100px 1fr 100px;
+    gap: 8px;
+  }
 `;
 
-const Value = styled.span`
-  font-size: 11px;
+const LabelCol = styled.span`
+  font-size: 13px;
   color: #52555f;
   white-space: nowrap;
-`;
-
-const Track = styled.div`
-  display: flex;
-  align-items: flex-end;
-  width: 100%;
-  max-width: 36px;
-  flex: 1;
-`;
-
-const Bar = styled.div<{ $accent: boolean }>`
-  width: 100%;
-  border-radius: 6px 6px 0 0;
-  background: ${({ $accent }) => ($accent ? "#f07020" : "#fbd8bf")};
-  transition: height 0.7s ease;
-`;
-
-const Label = styled.span`
-  max-width: 80px;
   overflow: hidden;
   text-overflow: ellipsis;
+`;
+
+const BarCol = styled.div`
+  flex: 1;
+`;
+
+const BarTrack = styled.div`
+  width: 100%;
+  height: 12px;
+  background: #f0f1f5;
+  border-radius: 25px;
+  overflow: hidden;
+`;
+
+const BarFill = styled.div`
+  height: 100%;
+  background: linear-gradient(90deg, #ff751d, #ffaa6b);
+  border-radius: 25px;
+  transition: width 0.4s ease;
+  min-width: 4px;
+`;
+
+const AmountCol = styled.span`
+  font-size: 13px;
+  font-weight: 700;
+  color: #08060d;
+  text-align: right;
   white-space: nowrap;
-  font-size: 11px;
+`;
+
+const Empty = styled.p`
+  text-align: center;
+  font-size: 14px;
   color: #52555f;
+  padding: 32px 0;
+  margin: 0;
 `;
