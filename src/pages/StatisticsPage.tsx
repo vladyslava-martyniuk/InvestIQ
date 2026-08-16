@@ -13,6 +13,7 @@ import {
   periodKey,
 } from "../utils/stats";
 import { useNavigate } from "react-router-dom";
+import { auth  } from "../firebase";
 import {
   subscribeToTransactions,
   deleteTransactionFromDb,
@@ -26,17 +27,15 @@ export default function StatisticsPage() {
   const [draft, setDraft] = useState("0");
   const [index, setIndex] = useState(0);
   const navigate = useNavigate();
-
+const userId = auth.currentUser?.uid;
   // Підписка на транзакції з Firebase
   useEffect(() => {
-    const unsubscribe = subscribeToTransactions((items) => {
-      setTransactions(items);
-    });
+    const unsubscribe = subscribeToTransactions(userId || "", setTransactions);
     return () => unsubscribe();
   }, []);
 
   const periods = useMemo(() => buildPeriods(transactions), [transactions]);
-
+   
   // Автоматично переходимо до першого місяця з транзакціями
   useMemo(() => {
     const first = getFirstPeriod(transactions);
@@ -73,8 +72,12 @@ export default function StatisticsPage() {
   };
 
   const handleDelete = async (id: string) => {
+
     try {
-      await deleteTransactionFromDb(id);
+      if (!userId) {
+        throw new Error('Поточний користувач не знайдено');
+      }
+      await deleteTransactionFromDb(userId, id);
     } catch {
       alert("Не вдалося видалити транзакцію");
     }
