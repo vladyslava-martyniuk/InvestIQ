@@ -85,6 +85,6 @@ const LoadingFallback = styled.div`
   justify-content: center;
   align-items: center;
   min-height: 100vh;
-  font-family: "Roboto", sans-serif;
+  font-family: "Montserrat", sans-serif;
   color: #52555f;
 `;

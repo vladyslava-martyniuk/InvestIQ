@@ -97,7 +97,7 @@ const Home: React.FC = () => {
             <TableWrapper>
               <TransactionsTable items={transactions} onDelete={handleDelete} />
             </TableWrapper>
-            <Compilation transactions={transactions} type="expense" />
+            <Compilation transactions={transactions} />
           </TableAndSummarySection>
         </MainCard>
     </ContentContainer>

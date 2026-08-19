@@ -44,6 +44,7 @@ const ScrollArea = styled.div`
 const Table = styled.table`
   width: 100%;
   min-width: 560px;
+  table-layout: fixed;
   border-collapse: collapse;
   font-size: 14px;
 
@@ -93,6 +94,9 @@ const Td = styled.td`
   padding: 18px 20px;
   border-top: 1px solid #f0f1f5;
   vertical-align: middle;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 
   @media (max-width: 640px) {
     display: flex;
@@ -101,6 +105,8 @@ const Td = styled.td`
     gap: 12px;
     padding: 2px 0;
     border: none;
+    overflow: visible;
+    white-space: normal;
 
     &::before {
       content: attr(data-label);
@@ -114,13 +120,13 @@ const Td = styled.td`
 `;
 
 const DateCell = styled(Td)`
-  width: 15%;
+  width: 14%;
   color: #52555f;
   white-space: nowrap;
 `;
 
 const DescCell = styled(Td)`
-  width: 35%;
+  width: 32%;
   font-weight: 500;
 `;
 
@@ -129,7 +135,7 @@ const CategoryCell = styled(Td)`
 `;
 
 const AmountCell = styled(Td)<{ $positive: boolean }>`
-  width: 20%;
+  width: 22%;
   text-align: right;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
@@ -141,9 +147,11 @@ const AmountCell = styled(Td)<{ $positive: boolean }>`
 `;
 
 const ActionCell = styled(Td)`
-  width: 8%;
+  width: 10%;
   text-align: right;
-  padding-right: 24px;
+  padding-left: 0;
+  padding-right: 12px;
+  overflow: visible;
 
   @media (max-width: 640px) {
     justify-content: flex-end;
@@ -187,6 +195,10 @@ const Badge = styled.span`
   white-space: nowrap;
 `;
 
+const Col = styled.col<{ $w: string }>`
+  width: ${({ $w }) => $w};
+`;
+
 const EmptyText = styled.p`
   font-size: 13px;
   color: #52555f;
@@ -213,6 +225,13 @@ export const TransactionsTable: React.FC<TransactionsTableProps> = ({ items, onD
     <Card>
       <ScrollArea>
         <Table>
+          <colgroup>
+            <Col $w="14%" />
+            <Col $w="32%" />
+            <Col $w="22%" />
+            <Col $w="22%" />
+            <Col $w="10%" />
+          </colgroup>
           <Head>
             <tr>
               <Th>Дата</Th>
@@ -226,7 +245,7 @@ export const TransactionsTable: React.FC<TransactionsTableProps> = ({ items, onD
             {items.map((tx) => (
               <Row key={tx.id}>
                 <DateCell data-label="Дата">{dateFmt.format(new Date(tx.date))}</DateCell>
-                <DescCell data-label="Опис">{tx.description}</DescCell>
+                <DescCell data-label="Опис" title={tx.description}>{tx.description}</DescCell>
                 <CategoryCell data-label="Категорія">
                   <Badge>{tx.category}</Badge>
                 </CategoryCell>

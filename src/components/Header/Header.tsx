@@ -48,7 +48,7 @@ const LogoLink = styled.a`
 /* Текст логотипа (адаптив розміру під мобілку) */
 const LogoText = styled.span`
   position: relative;
-  font-family: "Roboto", "Montserrat Alternates", sans-serif;
+  font-family: "Montserrat", "Montserrat Alternates", sans-serif;
   font-size: 20px;
   font-weight: 900;
   color: #000000;

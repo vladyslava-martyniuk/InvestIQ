@@ -250,7 +250,7 @@ const FormContainer = styled.form`
   display: flex;
   align-items: center;
   gap: 32px;
-  font-family: 'Roboto', sans-serif;
+  font-family: 'Montserrat', sans-serif;
   margin-top: 100px;
 
   @media (max-width: 1280px) {
@@ -267,6 +267,7 @@ const FormContainer = styled.form`
 const DatePickerWrapper = styled.div`
   display: flex;
   align-items: center;
+  flex: 0 0 auto;
   gap: 10px;
   cursor: pointer;
 `;
@@ -291,6 +292,8 @@ const DateInput = styled.input`
 const InputsGroup = styled.div`
   display: flex;
   align-items: center;
+  flex: 1 1 auto;
+  min-width: 0;
   border: 2px solid #f5f6fb;
   border-radius: 16px 16px 16px 0px;
   background-color: #ffffff;
@@ -317,6 +320,8 @@ const BaseInput = styled.input`
 `;
 
 const InputDescription = styled(BaseInput)`
+  flex: 1 1 200px;
+  min-width: 0;
   width: 290px;
   padding: 0 20px;
   border-radius: 16px 0 0 16px;
@@ -398,6 +403,7 @@ const CalculatorIcon = styled.svg`
 
 const ButtonGroup = styled.div`
   display: flex;
+  flex: 0 0 auto;
   gap: 16px;
 `;
 

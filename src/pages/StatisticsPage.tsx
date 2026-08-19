@@ -292,7 +292,7 @@ const Page = styled.div`
   min-height: 100vh;
   overflow-x: hidden;
   background: #f7f9fc;
-  font-family: "Roboto", sans-serif;
+  font-family: "Montserrat", sans-serif;
   color: #08060d;
 `;
 
@@ -653,6 +653,5 @@ const LoadingBox = styled.div`
   justify-content: center;
   align-items: center;
   height: 100vh;
-  font-family: sans-serif;
   color: #52555f;
 `;
