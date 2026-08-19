@@ -3,6 +3,7 @@ import styled from "styled-components";
 import { BarChart } from "../components/BarChart";
 import { MONTHS, fmt } from "../constants/statistics";
 import type { Transaction } from "../types/types";
+import { Balance } from "../components/Balance/Balance";
 import {
   buildPeriods,
   getBalance,
@@ -14,6 +15,7 @@ import {
 } from "../utils/stats";
 import { useNavigate } from "react-router-dom";
 import { auth  } from "../firebase";
+import { onAuthStateChanged, User } from "firebase/auth";
 import {
   subscribeToTransactions,
   deleteTransactionFromDb,
@@ -82,10 +84,17 @@ const userId = auth.currentUser?.uid;
       alert("Не вдалося видалити транзакцію");
     }
   };
+  const [user, setUser] = useState<User | null>(null);
+  const handleConfirmBalance = (value: number) => {
+    if (!user) return;
 
+    localStorage.setItem(`investiq-balance-${user.uid}`, String(value));
+    setStartBalance(value);
+  };
+  const transactionsTotal = transactions.reduce((sum, tx) => sum + tx.amount, 0);
   // Щоб уникнути помилки якщо periods порожній
   if (!period) return <LoadingBox>Завантаження...</LoadingBox>;
-
+ const currentBalance = (startBalance ?? 0) + transactionsTotal;
   return (
     <Page>
       <Blob />
@@ -96,26 +105,13 @@ const userId = auth.currentUser?.uid;
             <span aria-hidden>←</span> Повернутись на головну
           </BackLink>
 
-          <BalanceForm
-            onSubmit={(e) => {
-              e.preventDefault();
-              const v = Number(
-                draft.replace(/\s/g, "").replace(",", ".")
-              );
-              if (!Number.isNaN(v)) setStartBalance(v);
-            }}
-          >
-            <MutedLabel>Баланс:</MutedLabel>
-            <BalanceBox>
-              <BalanceInput
-                value={draft}
-                onChange={(e) => setDraft(e.target.value)}
-                onFocus={(e) => e.target.select()}
-              />
-              <Currency>UAH</Currency>
-            </BalanceBox>
-            <ConfirmBtn type="submit">ПІДТВЕРДИТИ</ConfirmBtn>
-          </BalanceForm>
+             <BalanceBox>
+                     <Balance
+                       value={currentBalance}
+                       isSet={startBalance !== null}
+                       onConfirm={handleConfirmBalance}
+                     />
+                   </BalanceBox>
 
           {/* Слайдер періоду */}
           <Period>
