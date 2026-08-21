@@ -8,31 +8,32 @@ interface Props {
   type?: "expense" | "income";
 }
 
-export const Compilation: React.FC<Props> = ({
-  transactions = [],
-  type = "expense",
-}) => {
-  const filtered = transactions.filter((t) => t.type === type);
+const signed = (amount: number) =>
+  `${amount < 0 ? "-" : "+"}${fmt(amount)} \u20B4`;
+
+export const Compilation: React.FC<Props> = ({ transactions = [], type }) => {
+  const filtered = type ? transactions.filter((t) => t.type === type) : transactions;
 
   const categoryMap: Record<string, number> = {};
   filtered.forEach((t) => {
-    categoryMap[t.category] =
-      (categoryMap[t.category] ?? 0) + Math.abs(t.amount);
+    categoryMap[t.category] = (categoryMap[t.category] ?? 0) + t.amount;
   });
 
   const categories = Object.entries(categoryMap)
-    .sort((a, b) => b[1] - a[1])
+    .sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]))
     .slice(0, 6);
 
-  const total = filtered.reduce((sum, t) => sum + Math.abs(t.amount), 0);
+  const total = filtered.reduce((sum, t) => sum + t.amount, 0);
 
   return (
     <CompilationWrapper>
       <HeaderRow>
         <CompilationTitle>Зведення</CompilationTitle>
-        <TypeBadge $isExpense={type === "expense"}>
-          {type === "expense" ? "Витрати" : "Доходи"}
-        </TypeBadge>
+        {type && (
+          <TypeBadge $isExpense={type === "expense"}>
+            {type === "expense" ? "Витрати" : "Доходи"}
+          </TypeBadge>
+        )}
       </HeaderRow>
 
       {categories.length === 0 ? (
@@ -42,12 +43,12 @@ export const Compilation: React.FC<Props> = ({
           {categories.map(([label, amount]) => (
             <CompilationItem key={label}>
               <CompilationItemText title={label}>{label}</CompilationItemText>
-              <AmountText>{fmt(amount)} ₴</AmountText>
+              <AmountText $positive={amount >= 0}>{signed(amount)}</AmountText>
             </CompilationItem>
           ))}
           <TotalRow>
             <CompilationItemText>Разом:</CompilationItemText>
-            <TotalAmount>{fmt(total)} ₴</TotalAmount>
+            <TotalAmount $positive={total >= 0}>{signed(total)}</TotalAmount>
           </TotalRow>
         </>
       )}
@@ -74,7 +75,7 @@ const HeaderRow = styled.div`
 `;
 
 const CompilationTitle = styled.div`
-  font-family: Roboto, sans-serif;
+  font-family: "Montserrat", sans-serif;
   font-weight: 700;
   font-size: 12px;
   text-transform: uppercase;
@@ -102,7 +103,7 @@ const CompilationItem = styled.div`
 `;
 
 const CompilationItemText = styled.div`
-  font-family: Roboto, sans-serif;
+  font-family: "Montserrat", sans-serif;
   font-weight: 400;
   font-size: 12px;
   letter-spacing: 0.04em;
@@ -114,11 +115,11 @@ const CompilationItemText = styled.div`
   max-width: 130px;
 `;
 
-const AmountText = styled.div`
-  font-family: Roboto, sans-serif;
+const AmountText = styled.div<{ $positive: boolean }>`
+  font-family: "Montserrat", sans-serif;
   font-weight: 700;
   font-size: 12px;
-  color: #e53e3e;
+  color: ${({ $positive }) => ($positive ? "#38a169" : "#e53e3e")};
   white-space: nowrap;
 `;
 
@@ -127,9 +128,7 @@ const TotalRow = styled(CompilationItem)`
   background: #eef0f7;
 `;
 
-const TotalAmount = styled(AmountText)`
-  color: #08060d;
-`;
+const TotalAmount = styled(AmountText)``;
 
 const EmptyText = styled.p`
   font-size: 12px;

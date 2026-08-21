@@ -55,7 +55,6 @@ export const subscribeToTransactions = (
 
 export const addTransactionToDb = async (userId: string, transaction: TransactionData) => {
   try {
-    // Транзакції лежать у підколекції конкретного користувача
     const docRef = await addDoc(collection(db, "users", userId, "transactions"), {
       ...transaction,
       createdAt: serverTimestamp(),

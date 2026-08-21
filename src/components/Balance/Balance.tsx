@@ -2,8 +2,8 @@ import React, { useState } from 'react';
 import styled from 'styled-components';
 
 interface BalanceProps {
-  value: number;                      // поточний баланс: стартовий + усі транзакції
-  isSet: boolean;                     // чи користувач уже вносив стартовий баланс
+  value: number;
+  isSet: boolean;
   onConfirm: (balance: number) => void;
 }
 
@@ -20,8 +20,6 @@ export const Balance: React.FC<BalanceProps> = ({ value, isSet, onConfirm }) => 
     }
   };
 
-  // Поки стартовий баланс не внесений — поле редаговане.
-  // Після підтвердження показуємо порахований баланс і блокуємо введення.
   const display = isSet ? `${value.toFixed(2)} UAH` : draft;
 
   return (
@@ -66,7 +64,7 @@ const BalanceWrapper = styled.div`
   gap: 20px;
   width: 100%;
   position: relative;
-  font-family: 'Roboto', 'Open Sans', sans-serif;
+  font-family: 'Montserrat', sans-serif;
 
   @media (max-width: 768px) {
     flex-direction: column;
